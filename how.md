@@ -127,6 +127,140 @@ be `src/app/login.tsx`).
 
 ---
 
+## 2026-08-02
+
+### What we have done so far
+
+We finished **Phase 2 (Authentication)** — the first real feature.
+Users can now sign in with their Google account and log out. The rest
+of the app is protected: if you are not signed in, you only see the
+login screen.
+
+Decisions made along the way:
+
+- **Google-only login.** The client asked us to use Google
+  authentication, so we removed the email/password screens.
+- **Supabase as the backend.** Supabase gives us free Google sign-in,
+  a database, and file storage — everything the roadmap needs later.
+
+### Step 1 — Added Supabase to the project
+
+1. **Installed the packages**
+   - `@supabase/supabase-js` — talks to the Supabase server.
+   - `@react-native-async-storage/async-storage` — stores the login
+     session on the phone so the user stays logged in.
+   - `expo-auth-session` + `expo-web-browser` — help the "Sign in with
+     Google" screen open and come back to our app.
+   - Installed with `npx expo install` so the versions match Expo.
+
+2. **Created a Supabase project**
+   - Created a new project on https://supabase.com.
+   - Copy-pasted its **Project URL** and **anon key** into
+     `mobile/.env` (the file that holds secret settings).
+   - `mobile/.env` is in `.gitignore` so the key is never uploaded to
+     GitHub. We also made `mobile/.env.example` with fake values so
+     anyone knows which settings to fill in.
+
+3. **Created the client** — `mobile/src/lib/supabase.ts`
+   - This file creates the `supabase` object that every screen uses.
+   - Told it where to store the session (`AsyncStorage`).
+   - Enabled **PKCE** (`flowType: 'pkce'`) — a secure way of swapping
+     the Google login code for a session.
+   - Enabled `detectSessionInUrl` so the app can read the login result
+     from the browser address bar on the web.
+
+### Step 2 — Turned on Google sign-in in Supabase
+
+1. In the Supabase dashboard: **Authentication → Providers → Google**.
+2. Created a **Google OAuth client** at
+   https://console.cloud.google.com with:
+   - Client ID: `696579369214-khcv8mbfvfam33bhc6g7un7v6890ct69.apps.googleusercontent.com`
+   - Client Secret: `GOCSPX-...`
+3. Pasted both into Supabase and saved.
+4. At first Google sign-in failed with **"provider is not enabled"**.
+   Fix: we had only created the OAuth client; we still had to flip the
+   "Enable Sign in with Google" toggle on. After that, Google worked.
+
+### Step 3 — Built the authentication state (the "brain")
+
+Created `mobile/src/context/auth-context.tsx`:
+
+- **Holds the session** — who is logged in right now.
+- **`isLoading`** — true while the app is checking for a saved login.
+- **`signOut()`** — clears the session locally first (so logout feels
+  instant), then tells the server to end the session too.
+- Listens to Supabase events (`onAuthStateChange`) so every screen
+  updates automatically when someone logs in or out.
+
+### Step 4 — Built the login screen
+
+1. **`mobile/src/app/login.tsx`**
+   - The main login page. It has one big "Continue with Google"
+     button.
+   - On the **web** it does a full-page redirect to Google and comes
+     back to our app with the login result.
+   - On **phone/Expo Go** it opens the Google screen in a popup and
+     exchanges the returned code for a session.
+
+2. **`mobile/src/components/auth/auth-screen.tsx`**
+   - The shared frame for auth pages (title, subtitle, form area).
+   - Reused by the login screen (and any future auth screens).
+
+3. **`mobile/src/components/auth/google-sign-in-button.tsx`**
+   - The "Continue with Google" button with the Google logo and a
+     spinner while loading.
+   - Added `assets/images/google-logo.png`.
+
+### Step 5 — Protected the rest of the app
+
+1. **Moved the app screens into `mobile/src/app/(tabs)/`**
+   - `(tabs)/index.tsx` = Home, `(tabs)/explore.tsx` = Explore.
+   - Moved them inside a `(tabs)` folder — an Expo Router "group"
+     that keeps them behind a bottom tab bar.
+   - Deleted the old `src/app/index.tsx` and `src/app/explore.tsx`.
+
+2. **`mobile/src/app/_layout.tsx`** — the route guard
+   - Wraps everything in `AuthProvider`.
+   - New `RootNavigator` watches the session:
+     - No session + not on login page → send to `/login`.
+     - Session exists + on login page → send to Home `/`.
+
+### Step 6 — Log out button
+
+- Added a **Log out** button on the Home screen
+  (`(tabs)/index.tsx`).
+- It calls `signOut()`, which clears the session. The route guard
+  immediately redirects back to the login screen.
+
+### Problems we faced and how we fixed them
+
+| Problem | What happened | How we fixed it |
+|---------|--------------|-----------------|
+| "Unsupported provider: provider is not enabled" | Google OAuth client was created but Google was still off in Supabase | Flipped the "Enable Sign in with Google" toggle in Supabase → Authentication → Providers |
+| Log out button did nothing | The animated splash overlay was drawn on top of everything and swallowed the tap | Added `pointerEvents="none"` to the overlay so clicks pass through it |
+| Splash screen never disappeared on some loads | The animation finish callback wasn't always firing | Added a fallback timer that hides the overlay after the animation duration |
+| Google login opened but returned to `localhost:3000` and showed "site can't be reached" | Supabase only allows redirecting back to its default URL (`http://localhost:3000`), and our app was on port 8081 | Run the web app on port 3000 (`expo start --web --port 3000`) so the callback lands back on our app |
+| Login code never completed after redirect | The page had `#access_token=` (old "implicit" flow) but our code looked for `?code=` (PKCE) | Switched the client to PKCE + `detectSessionInUrl` so both match |
+| Popup login was unreliable on web | Browsers warn about popups (`Cross-Origin-Opener-Policy`) | On web we now do a full-page redirect to Google instead of a popup; the popup is only used on phones |
+
+### How to run it
+
+1. `cd mobile`
+2. `npm run web` → opens the app at `http://localhost:3000`
+   (port 3000 is important — it is the URL Supabase allows for login).
+3. Click **Continue with Google**, pick an account → you land on the
+   Home screen saying "YOU ARE LOGGED IN".
+4. Click **Log out** → back to the login screen.
+
+### Next steps
+
+- **Phase 3 (User Profile)**: show the logged-in user's profile, and
+  use the Google account info (name, email, photo) they gave us.
+- Later: try the same login flow on the phone via Expo Go (the
+  `vidtalk://` redirect scheme is already registered for it).
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -134,7 +268,8 @@ be `src/app/login.tsx`).
 | `15e074d` | first commit | Created `README.md` |
 | `c269e8c` | Add VidTalk readme | Created `vidtalk_readme.md` |
 | `e851f82` | Add development roadmap | Created `ROADMAP.md` |
-| *(next)* | Setup Expo project | Created the `mobile/` Expo app (TypeScript + Expo Router) |
+| `6ea4fb3` | Setup Expo project | Created the `mobile/` Expo app (TypeScript + Expo Router) |
+| *(next)* | Add Google sign-in with Supabase | Phase 2: Google-only login, logout, and protected routes |
 
 ---
 

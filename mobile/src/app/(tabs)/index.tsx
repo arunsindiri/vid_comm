@@ -1,5 +1,5 @@
 import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AnimatedIcon } from '@/components/animated-icon';
@@ -8,6 +8,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
+import { useTheme } from '@/hooks/use-theme';
 
 function getDevMenuHint() {
   if (Platform.OS === 'web') {
@@ -29,18 +31,27 @@ function getDevMenuHint() {
 }
 
 export default function HomeScreen() {
+  const theme = useTheme();
+  const { signOut } = useAuth();
+
+  async function handleLogout() {
+    console.log('LOGOUT: button pressed');
+    await signOut();
+    console.log('LOGOUT: signOut finished');
+  }
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedView style={styles.heroSection}>
           <AnimatedIcon />
           <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
+            Welcome to&nbsp;VidTalk
           </ThemedText>
         </ThemedView>
 
         <ThemedText type="code" style={styles.code}>
-          get started
+          you are logged in
         </ThemedText>
 
         <ThemedView type="backgroundElement" style={styles.stepContainer}>
@@ -54,6 +65,19 @@ export default function HomeScreen() {
             hint={<ThemedText type="code">npm run reset-project</ThemedText>}
           />
         </ThemedView>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleLogout}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            { backgroundColor: theme.backgroundElement },
+            pressed && styles.pressed,
+          ]}>
+          <ThemedText type="smallBold" style={styles.logoutLabel}>
+            Log out
+          </ThemedText>
+        </Pressable>
 
         {Platform.OS === 'web' && <WebBadge />}
       </SafeAreaView>
@@ -94,5 +118,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.four,
     borderRadius: Spacing.four,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  logoutButton: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: Spacing.three,
+    borderRadius: Spacing.four,
+  },
+  logoutLabel: {
+    color: '#3c87f7',
   },
 });
