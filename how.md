@@ -261,6 +261,73 @@ Created `mobile/src/context/auth-context.tsx`:
 
 ---
 
+## 2026-08-02 (later)
+
+### What we have done so far
+
+We deployed the app to the internet on **Netlify** so the client can
+open it in any browser — no Expo Go, no install needed.
+
+**Live URL: https://fastidious-flan-9dac94.netlify.app**
+
+We also made the splash screen impossible to get stuck on.
+
+### Step 1 — Fixed the splash screen hanging forever
+
+- The splash overlay already had a fallback timer, but only started
+  after the animation began. If the animation never started, the
+  overlay stayed forever.
+- Fix: added a **safety timer** that force-hides the overlay after a
+  maximum of 2.5 seconds no matter what
+  (`MAX_OVERLAY_DURATION` in `animated-icon.tsx`).
+- Now the splash can never block the app, whatever Expo Go does.
+
+### Step 2 — Deployed the web app to Netlify
+
+1. Built the web version of the app:
+   - `npx expo export --platform web` → produced a `dist/` folder
+     (the whole app as static files: HTML, JS, images).
+2. Installed the Netlify CLI (as a dev dependency, since global
+   installs needed sudo):
+   - `npm install --save-dev netlify-cli`
+3. Logged in to Netlify and deployed:
+   - `./node_modules/.bin/netlify login`
+   - `./node_modules/.bin/netlify deploy --dir dist --prod`
+4. The site went live at
+   **https://fastidious-flan-9dac94.netlify.app**
+   (Netlify gives a random site name — we can change it to a nicer
+   name like `vidtalk.netlify.app` later if we want).
+5. Added `.netlify/` (local Netlify state) to `.gitignore` so it is
+   never committed.
+
+### Problems we faced and how we fixed them (deployment round)
+
+| Problem | What happened | How we fixed it |
+|---------|--------------|-----------------|
+| Expo Go said "Project is incompatible with this version of Expo Go" | The phone's Expo Go app was older than the SDK 57 the project needs | Updated Expo Go from the Google Play Store |
+| App stuck on splash in Expo Go with "New update available, downloading..." | Expo Go was downloading a patch to its own runtime and would not run the app until it finished | This is Expo Go updating itself, not the app. Waited / retried; the splash safety timer now guarantees our app never hangs regardless |
+| `netlify login` failed with a `FetchError` to api.netlify.com | The network resolves Netlify to IPv6 addresses that cannot be reached, and Node's fetch could not fall back to IPv4 | Created `ipv4-dns-workaround.js`, a small script that forces Node to use IPv4 DNS lookup, then ran login with `NODE_OPTIONS="--require ./ipv4-dns-workaround.js"` |
+| Google login on the live site redirected to `http://localhost:3000` instead of the Netlify URL | Supabase only allows redirecting back to its configured Site URL (`http://localhost:3000`); the Netlify URL was not in the allowed list | Add `https://fastidious-flan-9dac94.netlify.app` to **Supabase → Authentication → URL Configuration → Redirect URLs** (and optionally set it as Site URL) |
+
+### How the client can see it
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** in any browser.
+2. Click **Continue with Google** → pick an account.
+3. Lands on the Home screen ("YOU ARE LOGGED IN").
+4. Click **Log out** → back to login.
+
+> Note: Google login on the live URL only works after the Netlify URL
+> is added to Supabase's allowed redirect URLs (see the table above).
+
+### Next steps
+
+- Add the Netlify URL to Supabase redirects (one dashboard setting).
+- Give the site a nicer Netlify name (e.g. `vidtalk`).
+- **Phase 3 (User Profile)**: use the Google account info
+  (name, email, photo) to show a real profile page.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -269,7 +336,8 @@ Created `mobile/src/context/auth-context.tsx`:
 | `c269e8c` | Add VidTalk readme | Created `vidtalk_readme.md` |
 | `e851f82` | Add development roadmap | Created `ROADMAP.md` |
 | `6ea4fb3` | Setup Expo project | Created the `mobile/` Expo app (TypeScript + Expo Router) |
-| *(next)* | Add Google sign-in with Supabase | Phase 2: Google-only login, logout, and protected routes |
+| `8ad2268` | Add Google sign-in with Supabase | Phase 2: Google-only login, logout, and protected routes |
+| *(next)* | Deploy web app to Netlify | Live URL + splash screen safety timer + deployment fixes |
 
 ---
 
