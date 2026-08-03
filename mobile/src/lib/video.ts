@@ -17,11 +17,15 @@ export type VideoWithCreator = Video & {
   likes_count?: number;
 };
 
-export function getVideoThumbnailUrl(video: Video): string | null {
-  if (!video.cloudinary_public_id) return null;
+export function getCloudinaryThumbnailUrl(cloudinaryPublicId: string | null): string | null {
+  if (!cloudinaryPublicId) return null;
   const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
   if (!cloudName) return null;
-  return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_640/h_360/c_fill/${video.cloudinary_public_id}.jpg`;
+  return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_640/h_360/c_fill/${cloudinaryPublicId}.jpg`;
+}
+
+export function getVideoThumbnailUrl(video: Video): string | null {
+  return getCloudinaryThumbnailUrl(video.cloudinary_public_id);
 }
 
 function withLikes(video: any): any {

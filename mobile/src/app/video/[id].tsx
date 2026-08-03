@@ -219,7 +219,9 @@ export default function VideoScreen() {
                   {playerError.message}
                 </ThemedText>
               ) : null}
-              {video ? <CommentsSection videoId={video.id} viewerId={viewerId} /> : null}
+              {video ? (
+                <CommentsSection videoId={video.id} viewerId={viewerId} player={player} />
+              ) : null}
             </>
           )}
         </ScrollView>

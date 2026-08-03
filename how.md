@@ -975,6 +975,86 @@ Run in the Supabase SQL Editor. It creates:
 
 ---
 
+## 2026-08-03 (video comments ⭐)
+
+### What we have done so far
+
+We finished **Phase 11 (Video Comments)** — the star feature. A comment
+can now be a short **video reply**, optionally anchored to a timestamp
+in the video being commented on. Video and text can be combined, and a
+posted video comment plays inline right in the comment list.
+
+Checkpoint achieved: **users can reply using videos.**
+
+### Step 1 — Extended the comments table (`mobile/supabase/video-comments.sql`)
+
+Run in the Supabase SQL Editor. It extends the existing `comments`
+table:
+
+- `body` is now **optional** (a comment can be pure video).
+- New columns: `cloudinary_public_id`, `video_url`, `thumbnail_url`,
+  `duration_seconds`, `timestamp_seconds` (the anchor point in the
+  parent video).
+
+### Step 2 — Extended the comment library (`mobile/src/lib/comment.ts`)
+
+- `CommentWithAuthor` gains the video fields; `body` becomes nullable.
+- `addComment` now takes a `NewComment` object that can carry the video
+  reply fields (URL, Cloudinary id, thumbnail, duration, timestamp).
+- Small refactor in `mobile/src/lib/video.ts`: extracted
+  `getCloudinaryThumbnailUrl(publicId)` so video comments can reuse the
+  same Cloudinary thumbnail URL builder as the feed.
+
+### Step 3 — Video comments in the CommentsSection
+
+`mobile/src/components/comments-section.tsx`:
+
+- **"Add a video comment"** — picks a video from the device on web; on
+  phones it offers **Record** (camera) or **Choose from library**.
+- A **staged preview** shows the picked file's thumbnail + duration with
+  **Attach timestamp** and **Remove**.
+- **Attach timestamp** captures the parent player's `currentTime`
+  (expo-video's `player.currentTime` is a settable property) and shows
+  "Reply at 0:0X". The main video must be playing/paused to set it.
+- **Post** uploads the picked video to Cloudinary (same pipeline as
+  Phase 4), then saves the comment with its video fields; the caption
+  text input is optional.
+- **Display**: video comments render as a **thumbnail card** with a
+  duration badge. Tapping the thumbnail mounts a small inline
+  `VideoView` (lazy — players only exist while expanded) with native
+  controls + fullscreen.
+- Comments with a timestamp show a blue **"Jump to 0:0X"** chip; tapping
+  it seeks the parent video (`player.currentTime = timestamp`).
+
+### Step 4 — Deployed and verified
+
+1. The user ran `video-comments.sql`; verified the new columns exist
+   and the old text comment still reads back fine.
+2. `npx tsc --noEmit` passes → `npx expo export --platform web --clear`
+   → Netlify deploy.
+3. The client posted a video reply with a timestamp on the live site and
+   confirmed it works.
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Open a video → scroll to **Comments**.
+3. **Add a video comment** → pick a small MP4 → preview appears.
+4. Pause the main video where the reply refers to → **Attach timestamp**
+   → shows "Reply at 0:0X" → optionally type a caption → **Post**.
+5. The comment appears as a thumbnail; **tap it** to play inline.
+6. If it has a timestamp, tap **"Jump to 0:0X"** and the main video
+   seeks there.
+
+### Next steps
+
+- **Phase 12 (Threaded Replies)**: reply to comments and video comments
+  with nested replies — conversations.
+- Later: Phase 13 (Notifications), Phase 14 (Watch History),
+  Phase 15 (Playlists), then Optimization / Testing / Release.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -993,6 +1073,7 @@ Run in the Supabase SQL Editor. It creates:
 | `d1da14e` | Add search and public user profiles | Phase 7: search.ts library, Explore tab rewritten as Search (debounced, People + Videos sections), `/user/[id]` public profile page with Follow button and video list, `listVideos` userId filter |
 | `c32ab75` | Add likes | Phase 8: likes table + RLS, like.ts library, `likes(count)` embedded in feed queries, Like/Unlike button + count on the player, "N likes" on feed cards |
 | `daf9993` | Add text comments | Phase 10: comments table + RLS + author FK, comment.ts library, CommentsSection (post/edit/delete, pagination) on the player, shared `format.ts` helpers (DRY) |
+| *(pending)* | Add video comments | Phase 11 ⭐: comments table extended (nullable body + video fields + timestamp), CommentsSection video composer (pick/record, attach timestamp, Cloudinary upload), inline playback of video comments, "Jump to timestamp" seek, `getCloudinaryThumbnailUrl` refactor |
 
 ---
 

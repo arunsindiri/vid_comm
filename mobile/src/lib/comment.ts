@@ -4,10 +4,24 @@ export type CommentWithAuthor = {
   id: string;
   video_id: string;
   user_id: string;
-  body: string;
+  body: string | null;
   created_at: string;
   updated_at: string;
+  cloudinary_public_id: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  timestamp_seconds: number | null;
   author: { id: string; username: string | null; avatar_url: string | null } | null;
+};
+
+export type NewComment = {
+  body?: string | null;
+  cloudinary_public_id?: string | null;
+  video_url?: string | null;
+  thumbnail_url?: string | null;
+  duration_seconds?: number | null;
+  timestamp_seconds?: number | null;
 };
 
 export async function listComments(options: {
@@ -36,11 +50,20 @@ export async function listComments(options: {
 export async function addComment(
   userId: string,
   videoId: string,
-  body: string,
+  input: NewComment,
 ): Promise<{ comment: CommentWithAuthor | null; error: string | null }> {
   const { data, error } = await supabase
     .from('comments')
-    .insert({ user_id: userId, video_id: videoId, body })
+    .insert({
+      user_id: userId,
+      video_id: videoId,
+      body: input.body ?? null,
+      cloudinary_public_id: input.cloudinary_public_id ?? null,
+      video_url: input.video_url ?? null,
+      thumbnail_url: input.thumbnail_url ?? null,
+      duration_seconds: input.duration_seconds ?? null,
+      timestamp_seconds: input.timestamp_seconds ?? null,
+    })
     .select('*, author:profiles!comments_user_profile_fkey(id, username, avatar_url)')
     .single();
 
