@@ -826,6 +826,82 @@ Checkpoint achieved: **users can search for videos and people.**
 
 ---
 
+## 2026-08-03 (likes)
+
+### What we have done so far
+
+We finished **Phase 8 (Likes)**. Any signed-in user can **Like** or
+**Unlike** a video, and the like count is shown on both the video
+player and the Home feed cards.
+
+Checkpoint achieved: **like count updates** (and persists).
+
+### Step 1 — Created the likes table (`mobile/supabase/likes.sql`)
+
+Run in the Supabase SQL Editor. It creates:
+
+- A **`likes` table**: `user_id` (references `auth.users`) +
+  `video_id` (references `videos.id`), compound primary key so a user
+  can like a video only once, plus `created_at`.
+- An index on `video_id` so counting likes for a video stays fast.
+- **Row Level Security**: everyone can read any like (needed for
+  counts); only the liker can insert/delete their own like.
+
+### Step 2 — Built the like library (`mobile/src/lib/like.ts`)
+
+- `getLikeCount(videoId)` — exact count of likes on a video.
+- `hasLiked(userId, videoId)` — has this viewer already liked it?
+- `like(...)` / `unlike(...)` — insert/delete the like row.
+
+### Step 3 — Like counts ride along in feed queries
+
+- The `videos` FK to `likes` lets PostgREST embed a count in the same
+  query, so the feed gets `likes(count)` per video without N+1 calls.
+- `getVideo` / `listVideos` in `mobile/src/lib/video.ts` now select
+  `likes(count)` and map it to `likes_count` on the result.
+
+### Step 4 — Like button on the video player
+
+`mobile/src/app/video/[id].tsx`:
+
+- A **Like** button with the count next to the creator row. Tapping
+  toggles Like ↔ Unlike instantly; the count goes up/down and persists
+  (state is reloaded from the DB on open, so a reload keeps it).
+
+### Step 5 — Like count on feed cards
+
+- `mobile/src/components/video-card.tsx` shows a "**N likes**" line
+  under the creator, and the Home feed refetches on focus so counts
+  stay fresh after liking in the player.
+
+### Step 6 — Deployed and verified
+
+1. The user ran `likes.sql` in the SQL Editor; verified the table
+   exists and the `likes(count)` embed returns `0`.
+2. `npx tsc --noEmit` passes → `npx expo export --platform web --clear`
+   → Netlify deploy.
+3. The client liked "testing video" on the live site: the button turned
+   blue ("Liked 1"), the DB has the like row, and the video count reads
+   `1`. The "Unfollow" button seen at the same time is correct — that
+   session was logged in as the "mr bean" test account.
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Home feed → cards show a **"N likes"** line.
+3. Open a video → **Like** button with the count.
+4. Like → turns blue and shows the increased count; unlike reverts it.
+5. Counts survive reloads (they are stored in the `likes` table).
+
+### Next steps
+
+- **Phase 9 (Subscribe)**: subscribe/unsubscribe (the follow system
+  already covers this — Phase 9 mostly maps to what we built in the
+  follow round; the roadmap's real remaining piece is Phase 11's
+  "Subscriptions feed" toggle on Home).
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -842,6 +918,7 @@ Checkpoint achieved: **users can search for videos and people.**
 | `d437539` | Add video player | Phase 6: expo-video install + config plugin, getVideo(id), `/video/[id]` player screen with native controls + fullscreen, tappable feed cards |
 | `a6350ef` | Add follow system | follows table + RLS (no self-follow), follow.ts library, Follow/Unfollow on player screen, follower/following counts on Profile tab |
 | `d1da14e` | Add search and public user profiles | Phase 7: search.ts library, Explore tab rewritten as Search (debounced, People + Videos sections), `/user/[id]` public profile page with Follow button and video list, `listVideos` userId filter |
+| *(pending)* | Add likes | Phase 8: likes table + RLS, like.ts library, `likes(count)` embedded in feed queries, Like/Unlike button + count on the player, "N likes" on feed cards |
 
 ---
 

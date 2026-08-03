@@ -14,6 +14,7 @@ export type Video = {
 
 export type VideoWithCreator = Video & {
   creator: { id: string; username: string | null; avatar_url: string | null } | null;
+  likes_count?: number;
 };
 
 export function getVideoThumbnailUrl(video: Video): string | null {
@@ -23,20 +24,33 @@ export function getVideoThumbnailUrl(video: Video): string | null {
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_640/h_360/c_fill/${video.cloudinary_public_id}.jpg`;
 }
 
+function withLikes(video: any): any {
+  if (video) {
+    return {
+      ...video,
+      likes_count: (video.likes?.[0]?.count ?? 0) as number,
+      likes: undefined,
+    };
+  }
+  return video;
+}
+
+const LIKES_SELECT = 'likes(count)';
+
 export async function getVideo(id: string): Promise<{
   video: VideoWithCreator | null;
   error: string | null;
 }> {
   const { data, error } = await supabase
     .from('videos')
-    .select('*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url)')
+    .select(`*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url), ${LIKES_SELECT}`)
     .eq('id', id)
     .maybeSingle();
 
   if (error) {
     return { video: null, error: error.message };
   }
-  return { video: data ?? null, error: null };
+  return { video: data ? withLikes(data) : null, error: null };
 }
 
 export async function listVideos(options: {
@@ -50,7 +64,7 @@ export async function listVideos(options: {
 
   let query = supabase
     .from('videos')
-    .select('*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url)');
+    .select(`*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url), ${LIKES_SELECT}`);
 
   if (options.userId) {
     query = query.eq('user_id', options.userId);
@@ -64,7 +78,11 @@ export async function listVideos(options: {
     return { data: [], error: error.message, hasMore: false };
   }
 
-  return { data: data ?? [], error: null, hasMore: (data ?? []).length === limit };
+  return {
+    data: (data ?? []).map(withLikes),
+    error: null,
+    hasMore: (data ?? []).length === limit,
+  };
 }
 
 export type UploadTarget = {

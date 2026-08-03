@@ -76,6 +76,11 @@ export function VideoCard({ video }: { video: VideoWithCreator }) {
             <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
               {creatorName} · {formatTimeAgo(video.created_at)}
             </ThemedText>
+            {video.likes_count != null && (
+              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                {video.likes_count} {video.likes_count === 1 ? 'like' : 'likes'}
+              </ThemedText>
+            )}
           </View>
         </View>
       </ThemedView>

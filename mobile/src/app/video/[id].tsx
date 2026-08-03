@@ -12,6 +12,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { follow, isFollowing, unfollow } from '@/lib/follow';
+import { getLikeCount, hasLiked, like, unlike } from '@/lib/like';
 import { getVideo, getVideoThumbnailUrl, type VideoWithCreator } from '@/lib/video';
 
 function formatTimeAgo(iso: string) {
@@ -37,6 +38,9 @@ export default function VideoScreen() {
   const [error, setError] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const [likeBusy, setLikeBusy] = useState(false);
 
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
@@ -62,12 +66,24 @@ export default function VideoScreen() {
         return;
       }
       setVideo(res.video);
+      setLikeCount(res.video.likes_count ?? 0);
       player.replace(res.video.video_url);
     });
     return () => {
       active = false;
     };
   }, [id, player]);
+
+  useEffect(() => {
+    if (!viewerId || !id) return;
+    let active = true;
+    hasLiked(viewerId, id).then((value) => {
+      if (active) setLiked(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [viewerId, id]);
 
   useEffect(() => {
     if (!viewerId || !creatorId || viewerId === creatorId) return;
@@ -93,6 +109,27 @@ export default function VideoScreen() {
       else setFollowing(true);
     }
     setFollowBusy(false);
+  }
+
+  async function handleToggleLike() {
+    if (!viewerId || !id) return;
+    setLikeBusy(true);
+    if (liked) {
+      const err = await unlike(viewerId, id);
+      if (err) Alert.alert('Could not unlike', err);
+      else {
+        setLiked(false);
+        setLikeCount((c) => Math.max(0, c - 1));
+      }
+    } else {
+      const err = await like(viewerId, id);
+      if (err) Alert.alert('Could not like', err);
+      else {
+        setLiked(true);
+        setLikeCount((c) => c + 1);
+      }
+    }
+    setLikeBusy(false);
   }
 
   const thumbnail = video ? getVideoThumbnailUrl(video) : null;
@@ -148,6 +185,26 @@ export default function VideoScreen() {
                 <ThemedText type="small" themeColor="textSecondary" style={styles.creatorMeta}>
                   {video ? `${creatorName} · ${formatTimeAgo(video.created_at)}` : ' '}
                 </ThemedText>
+                {video ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={likeBusy}
+                    onPress={handleToggleLike}
+                    style={({ pressed }) => [
+                      styles.likeButton,
+                      { backgroundColor: theme.backgroundElement },
+                      liked && styles.likedButton,
+                      pressed && styles.pressed,
+                      likeBusy && styles.disabled,
+                    ]}>
+                    <ThemedText type="smallBold" style={liked ? styles.likedLabel : undefined}>
+                      {liked ? 'Liked' : 'Like'}
+                    </ThemedText>
+                    <ThemedText type="small" style={liked ? styles.likedLabel : undefined}>
+                      {likeCount}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
                 {showFollow && video ? (
                   <Pressable
                     accessibilityRole="button"
@@ -252,6 +309,20 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
     borderRadius: Spacing.three,
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  likedButton: {
+    backgroundColor: '#3c87f7',
+  },
+  likedLabel: {
+    color: '#ffffff',
   },
   unfollowLabel: {
     color: '#3c87f7',
