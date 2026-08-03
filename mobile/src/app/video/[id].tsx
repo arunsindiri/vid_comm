@@ -3,12 +3,15 @@ import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
+import { useTheme } from '@/hooks/use-theme';
+import { follow, isFollowing, unfollow } from '@/lib/follow';
 import { getVideo, getVideoThumbnailUrl, type VideoWithCreator } from '@/lib/video';
 
 function formatTimeAgo(iso: string) {
@@ -27,9 +30,13 @@ function formatTimeAgo(iso: string) {
 }
 
 export default function VideoScreen() {
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
   const [video, setVideo] = useState<VideoWithCreator | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
@@ -37,6 +44,9 @@ export default function VideoScreen() {
   const statusEvent = useEvent(player, 'statusChange', { status: player.status });
   const status = statusEvent?.status;
   const playerError = statusEvent?.error;
+
+  const viewerId = session?.user.id ?? null;
+  const creatorId = video?.creator?.id ?? null;
 
   useEffect(() => {
     if (!id) return;
@@ -59,8 +69,35 @@ export default function VideoScreen() {
     };
   }, [id, player]);
 
+  useEffect(() => {
+    if (!viewerId || !creatorId || viewerId === creatorId) return;
+    let active = true;
+    isFollowing(viewerId, creatorId).then((value) => {
+      if (active) setFollowing(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [viewerId, creatorId]);
+
+  async function handleToggleFollow() {
+    if (!viewerId || !creatorId) return;
+    setFollowBusy(true);
+    if (following) {
+      const err = await unfollow(viewerId, creatorId);
+      if (err) Alert.alert('Could not unfollow', err);
+      else setFollowing(false);
+    } else {
+      const err = await follow(viewerId, creatorId);
+      if (err) Alert.alert('Could not follow', err);
+      else setFollowing(true);
+    }
+    setFollowBusy(false);
+  }
+
   const thumbnail = video ? getVideoThumbnailUrl(video) : null;
   const creatorName = video?.creator?.username ?? 'VidTalk user';
+  const showFollow = Boolean(viewerId && creatorId && viewerId !== creatorId);
 
   return (
     <ThemedView style={styles.container}>
@@ -107,9 +144,27 @@ export default function VideoScreen() {
               <ThemedText type="subtitle" style={styles.title}>
                 {video?.title ?? 'Loading…'}
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {video ? `${creatorName} · ${formatTimeAgo(video.created_at)}` : ' '}
-              </ThemedText>
+              <View style={styles.creatorRow}>
+                <ThemedText type="small" themeColor="textSecondary" style={styles.creatorMeta}>
+                  {video ? `${creatorName} · ${formatTimeAgo(video.created_at)}` : ' '}
+                </ThemedText>
+                {showFollow && video ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={followBusy}
+                    onPress={handleToggleFollow}
+                    style={({ pressed }) => [
+                      styles.followButton,
+                      { backgroundColor: theme.backgroundElement },
+                      pressed && styles.pressed,
+                      followBusy && styles.disabled,
+                    ]}>
+                    <ThemedText type="smallBold" style={following ? styles.unfollowLabel : undefined}>
+                      {following ? 'Unfollow' : 'Follow'}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
               {video?.description ? (
                 <ThemedText type="default" themeColor="textSecondary" style={styles.description}>
                   {video.description}
@@ -184,6 +239,25 @@ const styles = StyleSheet.create({
   },
   description: {
     marginTop: Spacing.three,
+  },
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  creatorMeta: {
+    flex: 1,
+  },
+  followButton: {
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  unfollowLabel: {
+    color: '#3c87f7',
+  },
+  disabled: {
+    opacity: 0.5,
   },
   message: {
     textAlign: 'center',

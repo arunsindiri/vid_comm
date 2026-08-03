@@ -675,6 +675,72 @@ fullscreen all work).
 
 ---
 
+## 2026-08-03 (follow-up)
+
+### What we have done so far
+
+We added **Followers / Following** — the feature deferred from Phase 3
+(the client originally chose to leave it out, then asked for it back).
+Users can now follow/unfollow a creator from the video player screen,
+and their Profile tab shows follower/following counts.
+
+### Step 1 — Created the follows table (`mobile/supabase/follows.sql`)
+
+Run in the Supabase SQL Editor. It creates:
+
+- A **`follows` table**: `follower_id` + `following_id` (both reference
+  `profiles.id`, compound primary key so a person can only be followed
+  once), plus `created_at`.
+- **Row Level Security**: everyone can read any follow; only the
+  follower themselves can insert/delete their own follow rows.
+- A check so users **cannot follow themselves**
+  (`auth.uid() = follower_id and follower_id <> following_id`).
+
+### Step 2 — Built the follow library (`mobile/src/lib/follow.ts`)
+
+- `isFollowing(followerId, followingId)` — is this viewer following this
+  creator?
+- `follow(...)` / `unfollow(...)` — insert/delete a follow row.
+- `getFollowCounts(profileId)` — how many followers and how many people
+  they follow (two exact-count queries).
+
+### Step 3 — Follow button on the video player
+
+- The creator profile now returns its `id` too (`getVideo` / `listVideos`
+  select `creator:profiles!(id, username, avatar_url)`).
+- `mobile/src/app/video/[id].tsx` shows a **Follow / Unfollow** button
+  next to the creator name — only when viewing someone else's video.
+  The state is loaded on open and toggles instantly, and the UI
+  reflects it after a reload too.
+
+### Step 4 — Counts on the Profile tab
+
+- `mobile/src/app/(tabs)/profile.tsx` now shows **Followers N** and
+  **Following N** under the username, refreshed whenever the tab gains
+  focus.
+
+### Step 5 — Deployed and verified
+
+1. Typechecked, exported (`--clear`), deployed to Netlify.
+2. The client ran `follows.sql`, then tested on the live site:
+   following from the player screen works and persists after reload,
+   and the Profile tab shows the updated counts.
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Open a video from someone else → **Follow** next to the creator.
+3. It becomes **Unfollow** and stays that way after a reload.
+4. Profile tab → see **Followers / Following** counts.
+
+### Next steps
+
+- **Phase 7 (Search)**: let users find videos by title/creator.
+- Later (Phase 11 "Subscribe"): a Home feed toggle that only shows
+  videos from creators you follow.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -688,7 +754,8 @@ fullscreen all work).
 | `d9a2235` | Add user profile | Phase 3: profiles table/trigger/RLS, profile library, Profile + Edit Profile screens, profile tab (native + web), image picker |
 | `a7c46f9` | Add video upload | Phase 4: videos table + RLS, Cloudinary upload library, Upload tab/screen, upload tab icon |
 | `f5a08d7` | Add home feed | Phase 5: FK videos→profiles + index, listVideos with pagination, VideoCard, feed Home tab with infinite scroll, logout moved to Profile, thumbnail URL fix |
-| *(pending)* | Add video player (Phase 6) | expo-video install + config plugin, getVideo(id), `/video/[id]` player screen with native controls + fullscreen, tappable feed cards |
+| `d437539` | Add video player | Phase 6: expo-video install + config plugin, getVideo(id), `/video/[id]` player screen with native controls + fullscreen, tappable feed cards |
+| *(pending)* | Add follow system | follows table + RLS (no self-follow), follow.ts library, Follow/Unfollow on player screen, follower/following counts on Profile tab |
 
 ---
 

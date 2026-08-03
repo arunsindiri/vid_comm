@@ -13,7 +13,7 @@ export type Video = {
 };
 
 export type VideoWithCreator = Video & {
-  creator: { username: string | null; avatar_url: string | null } | null;
+  creator: { id: string; username: string | null; avatar_url: string | null } | null;
 };
 
 export function getVideoThumbnailUrl(video: Video): string | null {
@@ -29,7 +29,7 @@ export async function getVideo(id: string): Promise<{
 }> {
   const { data, error } = await supabase
     .from('videos')
-    .select('*, creator:profiles!videos_user_profile_fkey(username, avatar_url)')
+    .select('*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url)')
     .eq('id', id)
     .maybeSingle();
 
@@ -49,7 +49,7 @@ export async function listVideos(options: {
 
   const { data, error } = await supabase
     .from('videos')
-    .select('*, creator:profiles!videos_user_profile_fkey(username, avatar_url)')
+    .select('*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url)')
     .order('created_at', { ascending: false })
     .range(from, to);
 

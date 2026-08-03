@@ -1,13 +1,15 @@
 import { Image } from 'expo-image';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { getFollowCounts } from '@/lib/follow';
 import { getProfile, type Profile } from '@/lib/profile';
 
 function getFallbackUsername(user: { email?: string; user_metadata?: Record<string, unknown> }) {
@@ -29,6 +31,8 @@ export default function ProfileScreen() {
   const user = session?.user ?? null;
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [followers, setFollowers] = useState(0);
+  const [following, setFollowingCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,6 +40,11 @@ export default function ProfileScreen() {
       let active = true;
       getProfile(user.id).then((data) => {
         if (active) setProfile(data);
+      });
+      getFollowCounts(user.id).then((res) => {
+        if (!active || res.error) return;
+        setFollowers(res.followers);
+        setFollowingCount(res.following);
       });
       return () => {
         active = false;
@@ -64,6 +73,21 @@ export default function ProfileScreen() {
           <ThemedText type="subtitle" style={styles.username}>
             {username}
           </ThemedText>
+
+          <ThemedView style={styles.countsRow}>
+            <View style={styles.countItem}>
+              <ThemedText type="smallBold">{followers}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Followers
+              </ThemedText>
+            </View>
+            <View style={styles.countItem}>
+              <ThemedText type="smallBold">{following}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Following
+              </ThemedText>
+            </View>
+          </ThemedView>
 
           {bio ? (
             <ThemedText type="default" themeColor="textSecondary" style={styles.bio}>
@@ -135,6 +159,15 @@ const styles = StyleSheet.create({
   },
   username: {
     textAlign: 'center',
+  },
+  countsRow: {
+    flexDirection: 'row',
+    gap: Spacing.five,
+    marginVertical: Spacing.one,
+  },
+  countItem: {
+    alignItems: 'center',
+    gap: Spacing.half,
   },
   bio: {
     textAlign: 'center',
