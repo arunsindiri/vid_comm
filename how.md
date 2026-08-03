@@ -841,7 +841,7 @@ Checkpoint achieved: **users can search for videos and people.**
 | `f5a08d7` | Add home feed | Phase 5: FK videos→profiles + index, listVideos with pagination, VideoCard, feed Home tab with infinite scroll, logout moved to Profile, thumbnail URL fix |
 | `d437539` | Add video player | Phase 6: expo-video install + config plugin, getVideo(id), `/video/[id]` player screen with native controls + fullscreen, tappable feed cards |
 | `a6350ef` | Add follow system | follows table + RLS (no self-follow), follow.ts library, Follow/Unfollow on player screen, follower/following counts on Profile tab |
-| *(pending)* | Add search and public user profiles | Phase 7: search.ts library, Explore tab rewritten as Search (debounced, People + Videos sections), `/user/[id]` public profile page with Follow button and video list, `listVideos` userId filter |
+| `d1da14e` | Add search and public user profiles | Phase 7: search.ts library, Explore tab rewritten as Search (debounced, People + Videos sections), `/user/[id]` public profile page with Follow button and video list, `listVideos` userId filter |
 
 ---
 
