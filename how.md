@@ -328,6 +328,105 @@ We also made the splash screen impossible to get stuck on.
 
 ---
 
+## 2026-08-03
+
+### What we have done so far
+
+We finished **Phase 3 (User Profile)**. Users can now view their profile
+(photo, username, bio) and edit it — change username, write a bio, and
+upload a photo from their device. The changes are saved to Supabase and
+persist after logout/login and page reloads.
+
+Decisions made along the way:
+
+- **Profiles live in a `profiles` table** in Supabase, one row per user,
+  linked to the auth user (`id references auth.users`).
+- **The app shows Google's info by default** until the user edits their
+  profile (so the page never looks empty).
+- **No followers/following in this phase** — the client decided to leave
+  that for a later phase.
+
+### Step 1 — Created the database (`mobile/supabase/profiles.sql`)
+
+The user ran this file in **Supabase → SQL Editor** (result: "Success.
+No rows returned" — expected). It does four things:
+
+1. **Profiles table** — `id` (references `auth.users`), `username`
+   (unique), `bio`, `avatar_url`, `created_at`, `updated_at`.
+2. **Auto-profile trigger** — `handle_new_user()` creates a profile row
+   automatically whenever a *new* user signs up (uses their Google name
+   and photo). Wired up with `on_auth_user_created`.
+3. **Row Level Security** — everyone can *read* any profile; a user can
+   only *insert* or *update* their own row.
+4. **Storage bucket** — a public `avatars` bucket with policies so
+   anyone can view avatar images but only the owner can upload/update.
+
+### Step 2 — Built the profile library (`mobile/src/lib/profile.ts`)
+
+Three small functions the screens use:
+
+- `getProfile(userId)` — loads one user's profile (null if none).
+- `updateProfile(userId, updates)` — saves username/bio/avatar.
+- `uploadAvatar(userId, uri)` — uploads a photo to the `avatars` bucket
+  and returns its public URL.
+
+### Step 3 — Built the two screens
+
+1. **`mobile/src/app/(tabs)/profile.tsx`** — the Profile tab.
+   - Shows the avatar (circle), username, and bio.
+   - Falls back to the Google name/photo when no profile exists yet.
+   - **Refetches every time the tab gains focus** (see problem below).
+   - Has an **Edit Profile** button that opens the edit screen.
+
+2. **`mobile/src/app/edit-profile.tsx`** — the edit screen.
+   - Tap the avatar → pick a photo from the device
+     (`expo-image-picker`, installed with `npx expo install`).
+   - Username + Bio fields with a **Save** / **Cancel**.
+   - Save uploads a new photo (if picked) then calls `updateProfile`,
+     then goes back to the Profile tab.
+
+3. **Registered the Profile tab** — added a `profile` trigger in
+   `mobile/src/components/app-tabs.tsx` **and**
+   `mobile/src/components/app-tabs.web.tsx` (see problem below), added
+   `assets/images/tabIcons/profile{,@2x,@3x}.png`, and registered the
+   `edit-profile` screen in `src/app/_layout.tsx`.
+
+### Step 4 — Deployed to Netlify again
+
+- `npx tsc --noEmit` (passes) → `npx expo export --platform web` →
+  `./node_modules/.bin/netlify deploy --dir dist --prod`
+- Live again at **https://fastidious-flan-9dac94.netlify.app**.
+
+### Problems we faced and how we fixed them (Phase 3)
+
+| Problem | What happened | How we fixed it |
+|---------|--------------|-----------------|
+| Profile tab was not visible in the navigation | The app uses **two** tab bar files: the phone version had the Profile trigger, but the **web** version (`app-tabs.web.tsx`) still only had Home and Explore | Added the same `<TabTrigger name="profile" href="/profile">` to the web tab bar |
+| "Save changes" seemed to do nothing | The profile row did **not** exist. The auto-create trigger only fires on *new signups*, and this Google account was created before the trigger existed, so re-logging in never created a row. The `update` then silently affected 0 rows | Changed `updateProfile` to **upsert** (insert if missing, update if present) via `onConflict: 'id'`, and added an `INSERT` policy to the SQL so the upsert is allowed |
+| Save failed with a row-level security error | The upsert can insert a new row, but only an `UPDATE` policy existed — inserting was blocked by RLS | Added `create policy "Users can insert their own profile" ... with check (auth.uid() = id)` to `profiles.sql` and ran just that statement in the SQL Editor |
+| Profile tab still showed the old/default info right after saving | Tab screens stay mounted in Expo Router, so the Profile tab never re-ran its `getProfile` when we returned from the edit screen — it only showed fresh data after a full page reload | Switched the Profile tab to `useFocusEffect` (from `expo-router`) so it refetches from the DB every time it comes back into focus |
+| Uploaded avatar URL was malformed (`.../avatar.app/<uuid>`) | On the web the image picker returns a `blob:` URI, and the old code guessed the file extension by splitting the URI on `.` — which produced the garbage name `avatar.app/<uuid>` (stored in a valid but ugly path) | Derive the extension from the file's MIME type (`blob.type`) instead, defaulting to `jpg`; now files are stored as `avatar.jpg` / `avatar.png` etc. |
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Log in with Google.
+3. Profile tab → shows your Google name/photo, "No bio yet".
+4. Edit Profile → change username, add a bio, pick a photo → Save.
+5. The Profile tab updates **immediately** and the changes survive a
+   page reload and logout/login.
+
+> Tip: the profile row is created automatically the first time you save
+> (upsert), even for accounts made before the trigger existed.
+
+### Next steps
+
+- **Phase 4 (Upload)**: record/pick a video and upload it to Supabase.
+- Remember to hard-refresh after each deploy (browser caching can show
+  an old bundle).
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -337,7 +436,8 @@ We also made the splash screen impossible to get stuck on.
 | `e851f82` | Add development roadmap | Created `ROADMAP.md` |
 | `6ea4fb3` | Setup Expo project | Created the `mobile/` Expo app (TypeScript + Expo Router) |
 | `8ad2268` | Add Google sign-in with Supabase | Phase 2: Google-only login, logout, and protected routes |
-| *(next)* | Deploy web app to Netlify | Live URL + splash screen safety timer + deployment fixes |
+| `03745a6` | Deploy web app to Netlify | Live URL + splash screen safety timer + deployment fixes |
+| *(pending)* | Add user profile (Phase 3) | Profiles table/trigger/RLS, profile library, Profile + Edit Profile screens, profile tab (native + web), image picker |
 
 ---
 
