@@ -1145,7 +1145,7 @@ Run in the Supabase SQL Editor:
 | `c32ab75` | Add likes | Phase 8: likes table + RLS, like.ts library, `likes(count)` embedded in feed queries, Like/Unlike button + count on the player, "N likes" on feed cards |
 | `daf9993` | Add text comments | Phase 10: comments table + RLS + author FK, comment.ts library, CommentsSection (post/edit/delete, pagination) on the player, shared `format.ts` helpers (DRY) |
 | `2ba3f8f` | Add video comments | Phase 11 ⭐: comments table extended (nullable body + video fields + timestamp), CommentsSection video composer (pick/record, attach timestamp, Cloudinary upload), inline playback of video comments, "Jump to timestamp" seek, `getCloudinaryThumbnailUrl` refactor |
-| *(pending)* | Add threaded replies | Phase 12: `comments.parent_id` self-FK (cascade), `loadAllComments`, thread-tree CommentsSection (recursive CommentRow, nested indentation, Reply/Edit/Delete), reusable CommentComposer for replies including video replies |
+| `cf5c192` | Add threaded replies | Phase 12: `comments.parent_id` self-FK (cascade), `loadAllComments`, thread-tree CommentsSection (recursive CommentRow, nested indentation, Reply/Edit/Delete), reusable CommentComposer for replies including video replies |
 
 ---
 
