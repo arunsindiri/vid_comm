@@ -1055,6 +1055,77 @@ table:
 
 ---
 
+## 2026-08-03 (threaded replies)
+
+### What we have done so far
+
+We finished **Phase 12 (Threaded Replies)**. Any comment — text **or**
+video — can now be replied to, and replies can themselves be replied
+to, forming nested conversations. Video replies work in threads too
+(with timestamps).
+
+Checkpoint achieved: **conversations work.**
+
+### Step 1 — Added `parent_id` (`mobile/supabase/threaded-replies.sql`)
+
+Run in the Supabase SQL Editor:
+
+- `comments.parent_id` — a **self-referential FK** to `comments(id)`
+  with `on delete cascade` (deleting a comment removes its whole
+  thread), plus an index on it.
+
+### Step 2 — Extended the comment library (`mobile/src/lib/comment.ts`)
+
+- `CommentWithAuthor` gains `parent_id`; `addComment` accepts it.
+- New `loadAllComments(videoId)` — pages through every comment on a
+  video (capped at 2000) so the thread tree can be built client-side,
+  instead of the old flat "Load more" list.
+
+### Step 3 — Rebuilt CommentsSection as a thread tree
+
+`mobile/src/components/comments-section.tsx`:
+
+- `buildTree` — turns the flat comment list into a tree of
+  `CommentNode` (children sorted by time), roots sorted oldest-first.
+- `CommentRow` — a **recursive** row that renders a comment and then its
+  children nested (indented, up to 4 levels deep).
+- Each row has **Reply**, and **Edit / Delete** (own comments only).
+- **Reply** opens an inline composer under that comment — reusing the
+  same `CommentComposer` as the top-level box, so a reply can carry
+  text **and/or a video with a timestamp**.
+- Deleting a comment removes its whole subtree client-side too
+  (`removeSubtree`), matching the DB cascade.
+- The single top-level composer was extracted into `CommentComposer` so
+  top-level comments and replies share the exact same logic (DRY).
+
+### Step 4 — Deployed and verified
+
+1. The user ran `threaded-replies.sql`; verified `parent_id` reads back
+   (null for existing comments).
+2. `npx tsc --noEmit` passes → `npx expo export --platform web --clear`
+   → Netlify deploy.
+3. The client tested on the live site: text replies, video replies, and
+   replies-to-replies all nest correctly and persist after reload.
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Open a video → Comments → **Reply** on any comment.
+3. Post a text reply → it appears **indented** under the parent.
+4. Reply to a reply → nests another level.
+5. A reply can be a **video comment** (Reply → Add a video comment →
+   attach timestamp → Post).
+6. Delete a comment → its whole thread disappears; reload → threads
+   persist.
+
+### Next steps
+
+- **Phase 13 (Notifications)**: likes, replies, mentions, new followers.
+- Later: Phase 14 (Watch History), Phase 15 (Playlists), then
+  Optimization / Testing / Release.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -1074,6 +1145,7 @@ table:
 | `c32ab75` | Add likes | Phase 8: likes table + RLS, like.ts library, `likes(count)` embedded in feed queries, Like/Unlike button + count on the player, "N likes" on feed cards |
 | `daf9993` | Add text comments | Phase 10: comments table + RLS + author FK, comment.ts library, CommentsSection (post/edit/delete, pagination) on the player, shared `format.ts` helpers (DRY) |
 | `2ba3f8f` | Add video comments | Phase 11 ⭐: comments table extended (nullable body + video fields + timestamp), CommentsSection video composer (pick/record, attach timestamp, Cloudinary upload), inline playback of video comments, "Jump to timestamp" seek, `getCloudinaryThumbnailUrl` refactor |
+| *(pending)* | Add threaded replies | Phase 12: `comments.parent_id` self-FK (cascade), `loadAllComments`, thread-tree CommentsSection (recursive CommentRow, nested indentation, Reply/Edit/Delete), reusable CommentComposer for replies including video replies |
 
 ---
 
