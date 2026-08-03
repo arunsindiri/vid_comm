@@ -42,14 +42,21 @@ export async function getVideo(id: string): Promise<{
 export async function listVideos(options: {
   page?: number;
   limit?: number;
+  userId?: string;
 }): Promise<{ data: VideoWithCreator[]; error: string | null; hasMore: boolean }> {
   const limit = options.limit ?? 10;
   const from = (options.page ?? 0) * limit;
   const to = from + limit - 1;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('videos')
-    .select('*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url)')
+    .select('*, creator:profiles!videos_user_profile_fkey(id, username, avatar_url)');
+
+  if (options.userId) {
+    query = query.eq('user_id', options.userId);
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .range(from, to);
 
