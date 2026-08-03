@@ -12,6 +12,38 @@ export type Video = {
   created_at: string;
 };
 
+export type VideoWithCreator = Video & {
+  creator: { username: string | null; avatar_url: string | null } | null;
+};
+
+export function getVideoThumbnailUrl(video: Video): string | null {
+  if (!video.cloudinary_public_id) return null;
+  const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  if (!cloudName) return null;
+  return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_640/h_360/c_fill/${video.cloudinary_public_id}.jpg`;
+}
+
+export async function listVideos(options: {
+  page?: number;
+  limit?: number;
+}): Promise<{ data: VideoWithCreator[]; error: string | null; hasMore: boolean }> {
+  const limit = options.limit ?? 10;
+  const from = (options.page ?? 0) * limit;
+  const to = from + limit - 1;
+
+  const { data, error } = await supabase
+    .from('videos')
+    .select('*, creator:profiles!videos_user_profile_fkey(username, avatar_url)')
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    return { data: [], error: error.message, hasMore: false };
+  }
+
+  return { data: data ?? [], error: null, hasMore: (data ?? []).length === limit };
+}
+
 export type UploadTarget = {
   uri: string;
   fileName?: string | null;

@@ -1,85 +1,109 @@
-import * as Device from 'expo-device';
-import { Platform, Pressable, StyleSheet } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
+import { VideoCard } from '@/components/video-card';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useAuth } from '@/context/auth-context';
-import { useTheme } from '@/hooks/use-theme';
+import { listVideos, type VideoWithCreator } from '@/lib/video';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+const PAGE_SIZE = 10;
 
 export default function HomeScreen() {
-  const theme = useTheme();
-  const { signOut } = useAuth();
+  const [videos, setVideos] = useState<VideoWithCreator[]>([]);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const loadingRef = useRef(false);
 
-  async function handleLogout() {
-    console.log('LOGOUT: button pressed');
-    await signOut();
-    console.log('LOGOUT: signOut finished');
+  const fetchPage = useCallback(async (targetPage: number, replace: boolean) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    if (replace) setLoading(true);
+    const res = await listVideos({ page: targetPage, limit: PAGE_SIZE });
+    loadingRef.current = false;
+
+    if (res.error) {
+      setError(res.error);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    setError(null);
+    setVideos((prev) => (replace ? res.data : [...prev, ...res.data]));
+    setHasMore(res.hasMore);
+    setPage(targetPage);
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPage(0, true);
+    }, [fetchPage])
+  );
+
+  function handleEndReached() {
+    if (hasMore && !loadingRef.current) {
+      fetchPage(page + 1, false);
+    }
+  }
+
+  function handleRefresh() {
+    setRefreshing(true);
+    fetchPage(0, true);
+  }
+
+  if (error && videos.length === 0) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.message}>
+            Could not load videos: {error}
+          </ThemedText>
+        </SafeAreaView>
+      </ThemedView>
+    );
   }
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;VidTalk
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          you are logged in
+        <ThemedText type="subtitle" style={styles.header}>
+          VidTalk
         </ThemedText>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleLogout}
-          style={({ pressed }) => [
-            styles.logoutButton,
-            { backgroundColor: theme.backgroundElement },
-            pressed && styles.pressed,
-          ]}>
-          <ThemedText type="smallBold" style={styles.logoutLabel}>
-            Log out
-          </ThemedText>
-        </Pressable>
-
-        {Platform.OS === 'web' && <WebBadge />}
+        <FlatList
+          data={videos}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <VideoCard video={item} />}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator style={styles.spinner} />
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary" style={styles.message}>
+                No videos yet. Be the first to upload one!
+              </ThemedText>
+            )
+          }
+          ListFooterComponent={
+            hasMore && videos.length > 0 ? (
+              <ActivityIndicator style={styles.spinner} />
+            ) : null
+          }
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -88,47 +112,33 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    paddingBottom: BottomTabInset,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
+  header: {
     textAlign: 'center',
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.two,
   },
-  code: {
-    textTransform: 'uppercase',
+  listContent: {
+    paddingHorizontal: Spacing.four,
+    paddingBottom: Spacing.five,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    flexGrow: 1,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  separator: {
+    height: Spacing.three,
   },
-  pressed: {
-    opacity: 0.7,
+  spinner: {
+    marginVertical: Spacing.five,
   },
-  logoutButton: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    borderRadius: Spacing.four,
-  },
-  logoutLabel: {
-    color: '#3c87f7',
+  message: {
+    textAlign: 'center',
+    marginTop: Spacing.six,
+    paddingHorizontal: Spacing.four,
   },
 });

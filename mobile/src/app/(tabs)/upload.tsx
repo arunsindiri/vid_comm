@@ -16,6 +16,7 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { saveVideo, uploadVideoToCloudinary } from '@/lib/video';
+import { updateProfile } from '@/lib/profile';
 
 type PickedVideo = {
   uri: string;
@@ -95,6 +96,12 @@ export default function UploadScreen() {
       const uploaded = await uploadVideoToCloudinary(video);
       if (uploaded.error) {
         Alert.alert('Upload failed', uploaded.error);
+        return;
+      }
+
+      const ensured = await updateProfile(user.id, {});
+      if (ensured.error) {
+        Alert.alert('Save failed', ensured.error);
         return;
       }
 

@@ -3,7 +3,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
@@ -26,7 +25,7 @@ function getFallbackAvatar(user: { user_metadata?: Record<string, unknown> }) {
 
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { session } = useAuth();
+  const { session, signOut } = useAuth();
   const user = session?.user ?? null;
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -85,6 +84,19 @@ export default function ProfileScreen() {
               pressed && styles.pressed,
             ]}>
             <ThemedText type="smallBold">Edit Profile</ThemedText>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={signOut}
+            style={({ pressed }) => [
+              styles.editButton,
+              { backgroundColor: theme.backgroundElement },
+              pressed && styles.pressed,
+            ]}>
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              Log out
+            </ThemedText>
           </Pressable>
         </ThemedView>
       </SafeAreaView>

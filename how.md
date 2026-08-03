@@ -515,6 +515,93 @@ The user ran this in the Supabase SQL Editor. It creates:
 
 ---
 
+## 2026-08-03 (even later)
+
+### What we have done so far
+
+We finished **Phase 5 (Home Feed)**. The Home tab is no longer the
+template screen — it is now a real video feed. Uploaded videos appear
+as cards (thumbnail, title, creator name, duration, upload time) newest
+first, with infinite scroll.
+
+Checkpoint achieved: **users can browse videos.**
+
+### Step 1 — Added a foreign key for the creator join
+
+`mobile/supabase/feed.sql` (run in the Supabase SQL Editor):
+
+- `videos.user_id` → `profiles(id)` foreign key, so the feed can pull
+  the uploader's username + avatar in the same query.
+- An index on `videos.created_at` so "newest first" queries stay fast.
+
+### Step 2 — Extended the video library (`mobile/src/lib/video.ts`)
+
+- `listVideos({ page, limit })` — fetches one page of videos newest
+  first, joined with the creator's profile (`profiles!videos_user_profile_fkey`),
+  and reports `hasMore` so the feed knows when to stop.
+- `getVideoThumbnailUrl(video)` — builds a Cloudinary thumbnail frame
+  URL from the video's public id.
+
+### Step 3 — Built the VideoCard component
+
+`mobile/src/components/video-card.tsx` — one feed card:
+
+- 16:9 thumbnail (or a placeholder when missing) with a duration badge
+  ("0:10") in the corner.
+- Creator avatar (Google photo or initial), title, and "creator ·
+  51m ago" line.
+
+### Step 4 — Rewrote the Home tab as the feed
+
+`mobile/src/app/(tabs)/index.tsx`:
+
+- `FlatList` with **infinite scroll** (`onEndReached` loads the next
+  page of 10) and **pull-to-refresh**.
+- Refetches the first page whenever the Home tab gains focus, so a
+  freshly uploaded video shows up right away.
+- Loading spinner, an empty state ("No videos yet…"), and an error state.
+
+Also:
+
+- **Moved the Log out button to the Profile tab** (Home is now the
+  feed, so it no longer has the template logout button).
+- **Upload screen safety**: before saving a video we now upsert the
+  profile row first, so the new foreign key can never block an upload
+  for an account that somehow has no profile row.
+
+### Step 5 — Deployed and verified
+
+1. Deployed, then ran the feed query directly against Supabase — it
+   failed until the `feed.sql` foreign key was created in the SQL
+   Editor ("could not find a relationship").
+2. The client hard-refreshed and confirmed the feed: one video card
+   ("testing video" / "arun kumar" / 51m ago / 0:10) with working tabs.
+3. The thumbnail was blank. Root cause: Cloudinary returned `400` for
+   `v_169` + `c_fill`. Fix: switched the thumbnail URL to
+   `so_0.5/w_640/h_360/c_fill` (HTTP 200, `image/jpeg`) and redeployed.
+
+### Problems we faced and how we fixed them (Phase 5)
+
+| Problem | What happened | How we fixed it |
+|---------|--------------|-----------------|
+| Feed query returned "Could not find a relationship between 'videos' and 'profiles'" | The join needs a real foreign key in the database, which the user had not created yet | Ran `mobile/supabase/feed.sql` in the Supabase SQL Editor to add the `videos_user_profile_fkey` constraint and the `created_at` index |
+| Video thumbnail was blank/gray | The Cloudinary thumbnail URL used `v_169` + `c_fill`, which Cloudinary rejects (HTTP 400) | Tested several transformations with curl and used the one that returns a real image: `so_0.5/w_640/h_360/c_fill/<public_id>.jpg` |
+| Video does not play when tapping a card | Playback is not part of Phase 5 — it is Phase 6 (Video Player) in the roadmap | Expected for now; Phase 6 will open/play the video when a card is tapped |
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Home tab shows uploaded videos as cards (thumbnail, title, creator).
+3. Scroll down to trigger infinite scroll when more than 10 exist.
+4. Log out now lives on the **Profile** tab.
+
+### Next steps
+
+- **Phase 6 (Video Player)**: tapping a card opens and plays the video
+  (web + native) with a proper full-screen player.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -526,7 +613,8 @@ The user ran this in the Supabase SQL Editor. It creates:
 | `8ad2268` | Add Google sign-in with Supabase | Phase 2: Google-only login, logout, and protected routes |
 | `03745a6` | Deploy web app to Netlify | Live URL + splash screen safety timer + deployment fixes |
 | `d9a2235` | Add user profile | Phase 3: profiles table/trigger/RLS, profile library, Profile + Edit Profile screens, profile tab (native + web), image picker |
-| *(pending)* | Add video upload (Phase 4) | videos table + RLS, Cloudinary upload library, Upload tab/screen, upload tab icon |
+| `a7c46f9` | Add video upload | Phase 4: videos table + RLS, Cloudinary upload library, Upload tab/screen, upload tab icon |
+| *(pending)* | Add home feed (Phase 5) | FK videos→profiles + index, listVideos with pagination, VideoCard, feed Home tab with infinite scroll, logout moved to Profile, thumbnail URL fix |
 
 ---
 
