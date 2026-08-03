@@ -902,6 +902,79 @@ Run in the Supabase SQL Editor. It creates:
 
 ---
 
+## 2026-08-03 (text comments)
+
+### What we have done so far
+
+We finished **Phase 10 (Text Comments)**. Any signed-in user can **post
+a comment** on a video, and the author can **edit** or **delete** their
+own comment.
+
+> Client note: text comments are a stepping stone — the *star* feature
+> is **video comments** (Phase 11), and that is the priority going
+> forward.
+
+Checkpoint achieved: **comments work** (add, edit, delete).
+
+### Step 1 — Created the comments table (`mobile/supabase/comments.sql`)
+
+Run in the Supabase SQL Editor. It creates:
+
+- A **`comments` table**: `id` (uuid), `video_id` (→ `videos`, delete
+  cascade), `user_id` (→ `auth.users`, delete cascade), `body`,
+  `created_at`, `updated_at`.
+- An index on `video_id`.
+- **Row Level Security**: everyone can read; only the author can
+  insert/update/delete their own comment.
+
+### Step 2 — Built the comment library (`mobile/src/lib/comment.ts`)
+
+- `listComments({ videoId, page, limit })` — oldest first, joined with
+  the author profile (`profiles!comments_user_profile_fkey`).
+- `addComment` / `updateComment` / `deleteComment` — insert/edit/remove
+  a comment (the edit also bumps `updated_at`).
+
+### Step 3 — Built the CommentsSection component
+
+`mobile/src/components/comments-section.tsx`:
+
+- A **composer** (textarea + Post button) at the top, only shown to
+  signed-in users.
+- Each comment shows the author's avatar, name, "time ago", and body.
+- **Edit** / **Delete** appear only on your own comments. Edit turns the
+  comment into an inline text field with Save/Cancel.
+- "Load more comments" pagination (20 at a time).
+- Wired into the player screen below the video description.
+
+### Step 4 — DRY: shared time/duration/count helpers
+
+- `formatTimeAgo`, `formatDuration`, and `formatCount` were duplicated
+  across the player, feed card, and profile screens. Extracted them all
+  into `mobile/src/lib/format.ts` (project principle: no duplicate
+  code), and the player + feed card now import from there.
+
+### Problems we faced and how we fixed them (Phase 10)
+
+| Problem | What happened | How we fixed it |
+|---------|--------------|-----------------|
+| "Could not find a relationship between 'comments' and 'profiles'" | `comments.user_id` referenced `auth.users`, but the query joins the author profile; PostgREST needs a real FK between `comments` and `profiles` | Added an explicit constraint `comments_user_profile_fkey` (`user_id → profiles(id)`), same pattern as `videos_user_profile_fkey` in Phase 5, and used `author:profiles!comments_user_profile_fkey(...)` in the selects |
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Open a video → scroll to **Comments**.
+3. Type a comment → **Post** → it appears with your avatar/name and
+   survives a reload.
+4. On your own comment: **Edit** (inline → Save) and **Delete**.
+
+### Next steps
+
+- **Phase 11 (Video Comments) ⭐** — VidTalk's unique feature: reply to a
+  video with a *video* comment anchored to a timestamp. This is the
+  priority.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -919,6 +992,7 @@ Run in the Supabase SQL Editor. It creates:
 | `a6350ef` | Add follow system | follows table + RLS (no self-follow), follow.ts library, Follow/Unfollow on player screen, follower/following counts on Profile tab |
 | `d1da14e` | Add search and public user profiles | Phase 7: search.ts library, Explore tab rewritten as Search (debounced, People + Videos sections), `/user/[id]` public profile page with Follow button and video list, `listVideos` userId filter |
 | `c32ab75` | Add likes | Phase 8: likes table + RLS, like.ts library, `likes(count)` embedded in feed queries, Like/Unlike button + count on the player, "N likes" on feed cards |
+| *(pending)* | Add text comments | Phase 10: comments table + RLS + author FK, comment.ts library, CommentsSection (post/edit/delete, pagination) on the player, shared `format.ts` helpers (DRY) |
 
 ---
 

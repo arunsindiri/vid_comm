@@ -8,27 +8,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { CommentsSection } from '@/components/comments-section';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { follow, isFollowing, unfollow } from '@/lib/follow';
+import { formatTimeAgo } from '@/lib/format';
 import { getLikeCount, hasLiked, like, unlike } from '@/lib/like';
 import { getVideo, getVideoThumbnailUrl, type VideoWithCreator } from '@/lib/video';
-
-function formatTimeAgo(iso: string) {
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, Date.now() - then);
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
-  return new Date(iso).toLocaleDateString();
-}
 
 export default function VideoScreen() {
   const theme = useTheme();
@@ -232,6 +219,7 @@ export default function VideoScreen() {
                   {playerError.message}
                 </ThemedText>
               ) : null}
+              {video ? <CommentsSection videoId={video.id} viewerId={viewerId} /> : null}
             </>
           )}
         </ScrollView>
