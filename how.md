@@ -427,6 +427,94 @@ Three small functions the screens use:
 
 ---
 
+## 2026-08-03 (later)
+
+### What we have done so far
+
+We finished **Phase 4 (Video Upload)**. Creators can now pick a video
+from their device, give it a title and description, and upload it. The
+video is stored in **Cloudinary** (as the roadmap planned) and its
+metadata is saved in a new `videos` table in Supabase.
+
+Checkpoint achieved: **an uploaded video now appears in the database.**
+
+### Step 1 — Chose where videos live
+
+- The roadmap says videos go to **Cloudinary**, metadata to Supabase.
+- We asked the client which they preferred; they chose **Cloudinary**.
+- The client already had a Cloudinary account, so we used it:
+  - Cloud name: `tmf6kiy9`
+  - Upload preset: `video_comments` (set to **Unsigned**, so the app can
+    upload without a secret key — safe because the preset only allows
+    uploads, and the app is public).
+- Added the two values to `mobile/.env` as `EXPO_PUBLIC_CLOUDINARY_*`.
+
+### Step 2 — Created the videos table (`mobile/supabase/videos.sql`)
+
+The user ran this in the Supabase SQL Editor. It creates:
+
+- A **`videos` table**: `id`, `user_id` (links to `auth.users`),
+  `title`, `description`, `cloudinary_public_id`, `video_url`,
+  `thumbnail_url`, `duration_seconds`, `created_at`.
+- **Row Level Security**: anyone can read videos; only the owner can
+  insert/update/delete their own rows.
+
+### Step 3 — Built the upload library (`mobile/src/lib/video.ts`)
+
+- `uploadVideoToCloudinary(input)` — uploads the file to Cloudinary's
+  `/video/upload` endpoint with the unsigned preset, using `FormData`.
+  Works on web (a `File`/`Blob`) and native (a `{ uri, ... }` file).
+  Returns the Cloudinary public id and the secure video URL.
+- `saveVideo(...)` — inserts the metadata row into the `videos` table.
+
+### Step 4 — Built the Upload screen (`mobile/src/app/(tabs)/upload.tsx`)
+
+- A new **Upload** tab (added to both tab bars, native + web, with a
+  generated `upload` tab icon).
+- **Pick a video** via `expo-image-picker` (`mediaTypes: ['videos']`)
+  → shows the file name, size, and duration.
+- **Title** (required) and **Description** inputs.
+- **Upload** button → uploads to Cloudinary → saves metadata → shows
+  "Your video has been saved to the database."
+- On the web, blob URLs are revoked when leaving the screen to avoid
+  memory leaks.
+
+### Step 5 — Deployed and verified
+
+1. First deploy built without the Cloudinary values in the bundle —
+   `process.env.EXPO_PUBLIC_*` values were missing even though the
+   Supabase ones were present. Fix: **clear Metro's transform cache**
+   with `npx expo export --platform web --clear`, then redeploy.
+2. Verified the unsigned preset worked with a test upload to Cloudinary
+   (the "Unsupported video format" error for a fake file proved the
+   request passed the preset check).
+3. The client uploaded a real test video on the live site: title
+   "testing video", 10 seconds long. It appears in the `videos` table
+   and Cloudinary serves it as `video/mp4` (HTTP 200).
+
+### Problems we faced and how we fixed them (Phase 4)
+
+| Problem | What happened | How we fixed it |
+|---------|--------------|-----------------|
+| Upload preset or cloud name wrong? | We tested the preset by uploading a dummy file and got "Unsupported video format or file" | This is expected for a non-video file — the request passed the unsigned-preset check (a bad preset would return a different auth error). Cloudinary accepted the request; only the file content was invalid |
+| Cloudinary values missing from the deployed bundle | The exported JS contained the Supabase keys but not the new `EXPO_PUBLIC_CLOUDINARY_*` values, even though they were in `.env` | Re-ran `npx expo export --platform web --clear` to clear Metro's cached transform of the env, then redeployed. Values then appeared in the bundle |
+| Video upload failed mid-way | (covered above) | Use small videos to test; Cloudinary transcodes on upload so big files are slow |
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. Log in with Google → click the **Upload** tab.
+3. **Pick a video** (a small MP4) → add a **Title** → **Upload**.
+4. See "Your video has been saved to the database."
+5. Checkpoint: the row now exists in the `videos` table in Supabase.
+
+### Next steps
+
+- **Phase 5 (Home Feed)**: fetch uploaded videos and show them on the
+  Home tab (cards with title, creator, thumbnail/player).
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -437,7 +525,8 @@ Three small functions the screens use:
 | `6ea4fb3` | Setup Expo project | Created the `mobile/` Expo app (TypeScript + Expo Router) |
 | `8ad2268` | Add Google sign-in with Supabase | Phase 2: Google-only login, logout, and protected routes |
 | `03745a6` | Deploy web app to Netlify | Live URL + splash screen safety timer + deployment fixes |
-| *(pending)* | Add user profile (Phase 3) | Profiles table/trigger/RLS, profile library, Profile + Edit Profile screens, profile tab (native + web), image picker |
+| `d9a2235` | Add user profile | Phase 3: profiles table/trigger/RLS, profile library, Profile + Edit Profile screens, profile tab (native + web), image picker |
+| *(pending)* | Add video upload (Phase 4) | videos table + RLS, Cloudinary upload library, Upload tab/screen, upload tab icon |
 
 ---
 
