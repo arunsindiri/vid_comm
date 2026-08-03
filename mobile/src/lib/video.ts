@@ -23,6 +23,22 @@ export function getVideoThumbnailUrl(video: Video): string | null {
   return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_640/h_360/c_fill/${video.cloudinary_public_id}.jpg`;
 }
 
+export async function getVideo(id: string): Promise<{
+  video: VideoWithCreator | null;
+  error: string | null;
+}> {
+  const { data, error } = await supabase
+    .from('videos')
+    .select('*, creator:profiles!videos_user_profile_fkey(username, avatar_url)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    return { video: null, error: error.message };
+  }
+  return { video: data ?? null, error: null };
+}
+
 export async function listVideos(options: {
   page?: number;
   limit?: number;

@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -37,7 +38,7 @@ export function VideoCard({ video }: { video: VideoWithCreator }) {
   return (
     <Pressable
       accessibilityRole="button"
-      disabled
+      onPress={() => router.push(`/video/${video.id}`)}
       style={({ pressed }) => [pressed && styles.pressed]}>
       <ThemedView type="backgroundElement" style={styles.card}>
         <View style={styles.thumbnailContainer}>
