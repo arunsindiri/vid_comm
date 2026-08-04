@@ -1126,6 +1126,98 @@ Run in the Supabase SQL Editor:
 
 ---
 
+## 2026-08-04 (notifications)
+
+### What we have done so far
+
+We finished **Phase 13 (Notifications)**. New activity is pushed to a
+user automatically — via DB triggers, so nothing is missed even if the
+app is closed — and shown as a live unread badge on the Home screen
+plus a full Notifications page.
+
+Checkpoint achieved: **notifications received.**
+
+### Step 1 — `notifications.sql` (table, RLS, triggers)
+
+Run in the Supabase SQL Editor:
+
+- `notifications` table — `recipient_id` (→ auth.users, cascade),
+  `actor_id` (→ profiles, set null), `type` (`like` | `follow` |
+  `comment` | `reply` | `mention`), `video_id`, `comment_id`, `read`,
+  `created_at`, plus an index on `(recipient_id, created_at desc)`.
+- **RLS** — a user can only select / mark-read their own rows.
+- Three **security-definer trigger functions** so writes bypass RLS:
+  - `notify_on_like` — a like notifies the video's uploader (skips self).
+  - `notify_on_follow` — a follow notifies the followed user.
+  - `notify_on_comment` — a top-level comment notifies the video owner,
+    a reply notifies the parent's author, and a body mentioning
+    `@username` notifies that user.
+- `alter publication supabase_realtime add table notifications` — so
+  the live badge works.
+
+### Step 2 — Notifications library (`mobile/src/lib/notification.ts`)
+
+- `listNotifications` (20/page, newest first), `getUnreadCount`,
+  `markAllRead`, `markRead`, and `subscribeNotifications` (realtime
+  INSERT filtered by `recipient_id`).
+
+### Step 3 — Notifications screen + Home badge
+
+- `mobile/src/app/notifications.tsx` — header with **← Back** and
+  **Mark all read**, rows with avatar / message / time and an unread
+  dot, tap → mark read → open the actor profile (follow) or the video,
+  pull-to-refresh, load-more, and live prepend of new items.
+- Opening the screen **auto-marks everything read**, so the badge
+  clears after you "watch" your notifications.
+- `mobile/src/hooks/use-unread-notifications.ts` — refetches the count
+  on focus and increments live on new INSERTs.
+- Home header (`(tabs)/index.tsx`) — a **bell icon** (Ionicons from
+  `@expo/vector-icons`, newly added) with a blue badge (99+ cap) that
+  navigates to `/notifications`.
+
+### Step 4 — Bugs found and fixed during verification
+
+Two real bugs surfaced when testing with a headless browser:
+
+1. **Bell was not clickable.** The floating top tab bar
+   (`app-tabs.web.tsx`) is a full-width `position: absolute` container
+   that sat exactly over the Home header, silently swallowing every
+   click aimed at the bell. Fixed by:
+   - `pointerEvents="box-none"` on the tab bar container, so only the
+     pill itself is interactive and the strip around it is click-through;
+   - `TopBarHeight` (72) top padding on the Home header so the bell
+     clears the tab bar on every screen width.
+2. **Blank screen on opening Notifications.** Home and the
+   Notifications screen both subscribed to a channel named
+   `notifications:<userId>`; supabase-js reuses same-named channels, so
+   the second `.on()` threw *"cannot add postgres_changes callbacks …
+   after subscribe()"*. Fixed by appending a random suffix to each
+   channel name.
+
+Verified end-to-end in headless Chrome: clicking the bell navigates to
+`/notifications` (elementFromPoint at the bell returns the bell button),
+the screen renders, `markAllRead` fires on open, and the badge is gone
+after navigating back.
+
+### How to test it (live site)
+
+1. Open **https://fastidious-flan-9dac94.netlify.app** (hard refresh).
+2. With arun kumar: have mr bean like / comment / follow, or reply to a
+   comment mentioning `@arun kumar` — a **blue badge** appears on the
+   Home bell (live, without reload).
+3. Click the bell → Notifications lists each event with who did what.
+4. Just opening the screen (or **Mark all read**) clears the badge on
+   return to Home.
+5. Tap a notification → opens the video (or the user's profile) and
+   marks it read.
+
+### Next steps
+
+- **Phase 14 (Watch History)**: recently watched, continue watching.
+- Later: Phase 15 (Playlists), then Optimization / Testing / Release.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -1146,6 +1238,7 @@ Run in the Supabase SQL Editor:
 | `daf9993` | Add text comments | Phase 10: comments table + RLS + author FK, comment.ts library, CommentsSection (post/edit/delete, pagination) on the player, shared `format.ts` helpers (DRY) |
 | `2ba3f8f` | Add video comments | Phase 11 ⭐: comments table extended (nullable body + video fields + timestamp), CommentsSection video composer (pick/record, attach timestamp, Cloudinary upload), inline playback of video comments, "Jump to timestamp" seek, `getCloudinaryThumbnailUrl` refactor |
 | `cf5c192` | Add threaded replies | Phase 12: `comments.parent_id` self-FK (cascade), `loadAllComments`, thread-tree CommentsSection (recursive CommentRow, nested indentation, Reply/Edit/Delete), reusable CommentComposer for replies including video replies |
+| `8c04172` | Add notifications | Phase 13: notifications table + RLS + security-definer triggers (like/follow/comment/reply/@mention) + realtime, notification.ts library, Notifications screen (auto-mark-read on open, tap-to-open, live prepend), Home bell + unread badge (`@expo/vector-icons`), fixed tab-bar click-swallow (`pointerEvents box-none` + `TopBarHeight`) and duplicate realtime channel crash |
 
 ---
 
