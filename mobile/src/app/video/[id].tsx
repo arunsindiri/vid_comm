@@ -2,7 +2,7 @@ import { useEvent } from 'expo';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,6 +16,7 @@ import { follow, isFollowing, unfollow } from '@/lib/follow';
 import { formatTimeAgo } from '@/lib/format';
 import { getLikeCount, hasLiked, like, unlike } from '@/lib/like';
 import { getVideo, getVideoThumbnailUrl, type VideoWithCreator } from '@/lib/video';
+import { getResumePosition, recordProgress } from '@/lib/watch-history';
 
 export default function VideoScreen() {
   const theme = useTheme();
@@ -31,13 +32,71 @@ export default function VideoScreen() {
 
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
+    p.timeUpdateEventInterval = 1;
   });
   const statusEvent = useEvent(player, 'statusChange', { status: player.status });
   const status = statusEvent?.status;
   const playerError = statusEvent?.error;
+  const timeEvent = useEvent(player, 'timeUpdate', {
+    currentTime: player.currentTime,
+    currentLiveTimestamp: null,
+    currentOffsetFromLive: null,
+    bufferedPosition: 0,
+  });
+  const currentTime = timeEvent?.currentTime ?? 0;
 
   const viewerId = session?.user.id ?? null;
   const creatorId = video?.creator?.id ?? null;
+
+  const [resumePos, setResumePos] = useState<number | null>(null);
+  const didResumeRef = useRef(false);
+  const lastSavedRef = useRef<{ position: number; at: number }>({ position: 0, at: 0 });
+  const currentTimeRef = useRef(0);
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  useEffect(() => {
+    if (!viewerId || !id) {
+      setResumePos(0);
+      return;
+    }
+    let active = true;
+    getResumePosition(viewerId, id).then((pos) => {
+      if (active) setResumePos(pos);
+    });
+    return () => {
+      active = false;
+    };
+  }, [viewerId, id]);
+
+  useEffect(() => {
+    if (status !== 'readyToPlay' || resumePos === null || didResumeRef.current) return;
+    const duration = player.duration;
+    const shouldResume = resumePos >= 3 && (duration <= 0 || resumePos < duration - 10);
+    if (shouldResume) {
+      player.currentTime = resumePos;
+    }
+    didResumeRef.current = true;
+  }, [status, resumePos, player]);
+
+  useEffect(() => {
+    if (!viewerId || !id || currentTime <= 0) return;
+    const last = lastSavedRef.current;
+    if (currentTime - last.position >= 5 || Date.now() - last.at >= 15000) {
+      lastSavedRef.current = { position: currentTime, at: Date.now() };
+      const duration = player.duration > 0 ? Math.round(player.duration) : null;
+      recordProgress(viewerId, id, currentTime, duration);
+    }
+  }, [currentTime, viewerId, id, player]);
+
+  useEffect(() => {
+    return () => {
+      if (viewerId && id && currentTimeRef.current > 0) {
+        recordProgress(viewerId, id, currentTimeRef.current, null);
+      }
+    };
+  }, [viewerId, id]);
 
   useEffect(() => {
     if (!id) return;

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { VideoCard } from '@/components/video-card';
+import { ContinueWatching } from '@/components/continue-watching';
 import { BottomTabInset, MaxContentWidth, Spacing, TopBarHeight } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -110,6 +111,11 @@ export default function HomeScreen() {
           data={videos}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <VideoCard video={item} />}
+          ListHeaderComponent={
+            <View style={styles.headerSection}>
+              <ContinueWatching viewerId={viewerId} />
+            </View>
+          }
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           onEndReached={handleEndReached}
@@ -188,6 +194,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: MaxContentWidth,
     flexGrow: 1,
+  },
+  headerSection: {
+    marginHorizontal: -Spacing.four,
   },
   separator: {
     height: Spacing.three,
