@@ -1307,6 +1307,76 @@ login confirmed working by the user.
 
 ---
 
+## 2026-08-04 (continued) — Phase 15: Playlists
+
+### What was built
+
+**Playlists** — save videos into named collections, manage them, and add
+videos straight from the player:
+
+- `mobile/supabase/playlists.sql` — two tables (run in the Supabase SQL
+  Editor):
+  - `playlists` — `id`, `user_id` → `auth.users` (cascade), `name`,
+    `created_at`; index on `(user_id, created_at desc)`; RLS select /
+    insert / update / delete policies for own rows.
+  - `playlist_videos` — join table with primary key `(playlist_id,
+    video_id)`, both FKs cascade, `added_at`; RLS select / insert /
+    delete policies for rows reachable from your own playlists
+    (security-definer where clauses).
+- `mobile/src/lib/playlist.ts` — `listPlaylists` (embedding
+  `videos:playlist_videos(count)` for per-playlist video counts),
+  `getPlaylist` (embedding `video:videos(*, creator:…, likes(count))`),
+  `createPlaylist`, `renamePlaylist`, `deletePlaylist`,
+  `addVideoToPlaylist` (upsert on the PK), `removeVideoFromPlaylist`,
+  `getContainingPlaylistIds`.
+- `mobile/src/app/playlists.tsx` — list screen: create inline, delete
+  with confirm, per-row video counts + relative time, pull-to-refresh.
+- `mobile/src/app/playlist/[id].tsx` — detail screen: list the videos
+  with per-video "remove" overlay button, empty state, delete the whole
+  playlist.
+- `mobile/src/app/video/[id].tsx` — new bookmark icon button
+  (`aria-label="Save to playlist"`) that opens
+  `mobile/src/components/add-to-playlist-modal.tsx`: create a playlist
+  on the fly, and toggle videos in/out of playlists with checkmarks
+  (fetches which playlists already contain the video).
+- `mobile/src/app/(tabs)/profile.tsx` — Playlists count + link to
+  `/playlists`.
+- `mobile/src/components/video-card.tsx` — optional `action` overlay
+  slot (used by the playlist detail screen's remove button).
+
+### Deployed and verified
+
+1. The user ran `playlists.sql` in the Supabase SQL Editor; verified
+   `playlists` and `playlist_videos` read back `200` via REST.
+2. `npx tsc --noEmit` passes → `npx expo export --platform web --clear`
+   → new `/playlists` and `/playlist/[id]` routes appear in the static
+   export.
+3. Headless-Chrome smoke test (`test-playlists.js`) with mocked Supabase
+   REST: list renders with counts, create shows immediately, detail
+   screen shows the video, removing empties the playlist, and the
+   player's bookmark modal lists playlists and toggles the video in.
+4. Deployed to Cloudflare Pages (`npx wrangler pages deploy dist
+   --project-name vidtalk --branch main`); `/`, `/playlists`, and
+   `/playlist/<id>` all serve `200`, and the JS bundle matches the
+   build.
+
+### How to test it (live)
+
+1. Open **https://vidtalk.pages.dev** (hard refresh).
+2. **Profile tab** → tap **Playlists** (or open the player and tap the
+   bookmark icon).
+3. Type a name → **Create playlist**.
+4. Open any video → bookmark icon → **Save to playlist** → tick a
+   playlist → the video is saved (checkmark fills).
+5. Back on **Playlists**, open the playlist → see the saved videos →
+   remove one with its **✕** button → delete the playlist itself.
+
+### Next steps
+
+- Optimization / Testing / Release.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -1329,6 +1399,7 @@ login confirmed working by the user.
 | `cf5c192` | Add threaded replies | Phase 12: `comments.parent_id` self-FK (cascade), `loadAllComments`, thread-tree CommentsSection (recursive CommentRow, nested indentation, Reply/Edit/Delete), reusable CommentComposer for replies including video replies |
 | `8c04172` | Add notifications | Phase 13: notifications table + RLS + security-definer triggers (like/follow/comment/reply/@mention) + realtime, notification.ts library, Notifications screen (auto-mark-read on open, tap-to-open, live prepend), Home bell + unread badge (`@expo/vector-icons`), fixed tab-bar click-swallow (`pointerEvents box-none` + `TopBarHeight`) and duplicate realtime channel crash |
 | `6b3c85e` | Add watch history | Phase 14: `watch_history` table + RLS, watch-history.ts library (upsert progress / resume position / recent list), player progress tracking + resume (expo-video `timeUpdateEventInterval`), Continue watching / Recently watched row on Home. Moved hosting to Cloudflare Pages (https://vidtalk.pages.dev) after Netlify free-plan credits ran out |
+| (new) | Add playlists | Phase 15: `playlists` + `playlist_videos` tables + RLS, playlist.ts library (list/create/rename/delete, add/remove videos, containing-playlists), `/playlists` list screen + `/playlist/[id]` detail screen, AddToPlaylistModal on the player (bookmark button), Profile Playlists count/link, VideoCard `action` overlay |
 ---
 
 ## Rule

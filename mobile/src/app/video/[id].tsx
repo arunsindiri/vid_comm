@@ -5,10 +5,12 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { CommentsSection } from '@/components/comments-section';
+import { AddToPlaylistModal } from '@/components/add-to-playlist-modal';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
@@ -29,6 +31,7 @@ export default function VideoScreen() {
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [likeBusy, setLikeBusy] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
 
   const player = useVideoPlayer(null, (p) => {
     p.loop = false;
@@ -234,6 +237,19 @@ export default function VideoScreen() {
                 {video ? (
                   <Pressable
                     accessibilityRole="button"
+                    accessibilityLabel="Save to playlist"
+                    onPress={() => setSaveOpen(true)}
+                    style={({ pressed }) => [
+                      styles.iconButton,
+                      { backgroundColor: theme.backgroundElement },
+                      pressed && styles.pressed,
+                    ]}>
+                    <Ionicons name="bookmark-outline" size={20} color={theme.text} />
+                  </Pressable>
+                ) : null}
+                {video ? (
+                  <Pressable
+                    accessibilityRole="button"
                     disabled={likeBusy}
                     onPress={handleToggleLike}
                     style={({ pressed }) => [
@@ -284,6 +300,12 @@ export default function VideoScreen() {
             </>
           )}
         </ScrollView>
+        <AddToPlaylistModal
+          visible={saveOpen}
+          viewerId={viewerId}
+          videoId={id}
+          onClose={() => setSaveOpen(false)}
+        />
       </SafeAreaView>
     </ThemedView>
   );
@@ -365,6 +387,13 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingVertical: Spacing.two,
     paddingHorizontal: Spacing.three,
+    borderRadius: Spacing.three,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: Spacing.three,
   },
   likedButton: {

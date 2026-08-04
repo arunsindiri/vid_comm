@@ -11,6 +11,7 @@ import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { getFollowCounts } from '@/lib/follow';
 import { getProfile, type Profile } from '@/lib/profile';
+import { listPlaylists } from '@/lib/playlist';
 
 function getFallbackUsername(user: { email?: string; user_metadata?: Record<string, unknown> }) {
   const meta = user.user_metadata ?? {};
@@ -33,6 +34,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [followers, setFollowers] = useState(0);
   const [following, setFollowingCount] = useState(0);
+  const [playlistCount, setPlaylistCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,6 +47,10 @@ export default function ProfileScreen() {
         if (!active || res.error) return;
         setFollowers(res.followers);
         setFollowingCount(res.following);
+      });
+      listPlaylists(user.id).then((res) => {
+        if (!active || res.error) return;
+        setPlaylistCount(res.data.length);
       });
       return () => {
         active = false;
@@ -87,6 +93,15 @@ export default function ProfileScreen() {
                 Following
               </ThemedText>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/playlists')}
+              style={({ pressed }) => [styles.countItem, pressed && styles.pressed]}>
+              <ThemedText type="smallBold">{playlistCount}</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Playlists
+              </ThemedText>
+            </Pressable>
           </ThemedView>
 
           {bio ? (
