@@ -1,17 +1,26 @@
-import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, router } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { VideoCard } from '@/components/video-card';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { BottomTabInset, MaxContentWidth, Spacing, TopBarHeight } from '@/constants/theme';
+import { useAuth } from '@/context/auth-context';
+import { useTheme } from '@/hooks/use-theme';
+import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import { listVideos, type VideoWithCreator } from '@/lib/video';
 
 const PAGE_SIZE = 10;
 
 export default function HomeScreen() {
+  const theme = useTheme();
+  const { session } = useAuth();
+  const viewerId = session?.user.id ?? null;
+  const unread = useUnreadNotifications(viewerId);
+
   const [videos, setVideos] = useState<VideoWithCreator[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -74,9 +83,28 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="subtitle" style={styles.header}>
-          VidTalk
-        </ThemedText>
+        <View style={styles.header}>
+          <ThemedText type="subtitle" style={styles.headerTitle}>
+            VidTalk
+          </ThemedText>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => router.push('/notifications')}
+            style={({ pressed, hovered }) => [
+              styles.bellButton,
+              (pressed || hovered) && styles.pressed,
+            ]}>
+            <Ionicons name="notifications-outline" size={22} color={theme.text} />
+            {unread > 0 ? (
+              <View style={styles.badge}>
+                <ThemedText type="code" style={styles.badgeText}>
+                  {unread > 99 ? '99+' : unread}
+                </ThemedText>
+              </View>
+            ) : null}
+          </Pressable>
+        </View>
 
         <FlatList
           data={videos}
@@ -118,9 +146,40 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset,
   },
   header: {
-    textAlign: 'center',
-    paddingTop: Spacing.three,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: TopBarHeight,
     paddingBottom: Spacing.two,
+    paddingHorizontal: Spacing.four,
+  },
+  headerTitle: {
+    textAlign: 'center',
+  },
+  bellButton: {
+    position: 'absolute',
+    right: Spacing.four,
+    padding: Spacing.one,
+    cursor: 'pointer',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#3c87f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   listContent: {
     paddingHorizontal: Spacing.four,
