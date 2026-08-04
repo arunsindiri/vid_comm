@@ -21,11 +21,28 @@ export function getCloudinaryThumbnailUrl(cloudinaryPublicId: string | null): st
   if (!cloudinaryPublicId) return null;
   const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
   if (!cloudName) return null;
-  return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_640/h_360/c_fill/${cloudinaryPublicId}.jpg`;
+  return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_640/h_360/c_fill/f_auto/q_auto/${cloudinaryPublicId}.jpg`;
+}
+
+export function getCloudinaryPosterUrl(cloudinaryPublicId: string | null): string | null {
+  if (!cloudinaryPublicId) return null;
+  const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  if (!cloudName) return null;
+  return `https://res.cloudinary.com/${cloudName}/video/upload/so_0.5/w_1280/h_720/c_fill/f_auto/q_auto/${cloudinaryPublicId}.jpg`;
 }
 
 export function getVideoThumbnailUrl(video: Video): string | null {
   return getCloudinaryThumbnailUrl(video.cloudinary_public_id);
+}
+
+export function getOptimizedVideoUrl(video: {
+  cloudinary_public_id: string | null;
+  video_url: string;
+}): string {
+  if (!video.cloudinary_public_id) return video.video_url;
+  const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  if (!cloudName) return video.video_url;
+  return `https://res.cloudinary.com/${cloudName}/video/upload/q_auto/${video.cloudinary_public_id}.mp4`;
 }
 
 function withLikes(video: any): any {

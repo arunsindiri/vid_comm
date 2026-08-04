@@ -1413,6 +1413,62 @@ Added a **Record** option (native only):
 
 ---
 
+## 2026-08-04 (continued) — Phase 16: Optimization
+
+### What was built
+
+"App feels fast" checkpoint. Pagination was already done (feed infinite
+scroll via `listVideos` limit/range); this phase tackled image/video
+delivery and caching:
+
+- **Image Optimization** (`mobile/src/lib/video.ts`):
+  - `getCloudinaryThumbnailUrl` now appends `f_auto/q_auto`, so Cloudinary
+    serves **WebP/AVIF** instead of always-JPEG (measured ~56% smaller at
+    the same 640×360 crop);
+  - new `getCloudinaryPosterUrl` — a sharper `w_1280/h_720` poster for the
+    player's loading state;
+  - `expo-image` on `VideoCard` + `ContinueWatching` thumbnails now uses
+    `cachePolicy="memory-disk"` and `recyclingKey={video.id}` so scrolled
+    rows reuse cached bitmaps instead of re-decoding.
+- **Video Optimization** (`video.ts` + player):
+  - new `getOptimizedVideoUrl` — playback URL becomes
+    `video/upload/q_auto/<publicId>.mp4`, letting Cloudinary transcode to
+    the best bitrate (measured ~87% smaller on a sample); falls back to the
+    stored `video_url` when there's no Cloudinary id. The player now
+    `player.replace()`s the optimized URL.
+- **Caching** (`mobile/src/lib/cache.ts` + Home feed):
+  - tiny module-level TTL cache (`withCache` / `clearCache`);
+  - the Home feed caches page 0 for 60s, so re-focusing the tab doesn't
+    re-request the same rows instantly (feels instant);
+  - pull-to-refresh forces a fresh fetch; a successful upload calls
+    `clearCache('feed:')` so the new video appears.
+
+### Deployed and verified
+
+1. `npx tsc --noEmit` passes → `npx expo export --platform web --clear`.
+2. Headless smoke test (`test-playlists.js`) still passes end to end.
+3. Verified the Cloudinary transforms directly: `f_auto` returns WebP,
+   `q_auto` video is ~87% smaller.
+4. Deployed to Cloudflare Pages; `/` and `/playlists` return 200 and the
+   live JS bundle contains the optimized URLs.
+
+### How to test it
+
+1. Open **https://vidtalk.pages.dev** (hard refresh).
+2. The feed loads fast; thumbnails are WebP and cached — scroll back and
+   forth and they don't reload.
+3. Switch tabs and return to Home — no re-fetch spinner (60s cache);
+   pull down to refresh for fresh data.
+4. Play a video — it streams from Cloudinary at the optimized `q_auto`
+   bitrate.
+
+### Next steps
+
+- Phase 17 (Testing): auth, upload, feed, comments, video comments,
+  search — then Phase 18 (Release): APK + publish.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -1437,6 +1493,7 @@ Added a **Record** option (native only):
 | `6b3c85e` | Add watch history | Phase 14: `watch_history` table + RLS, watch-history.ts library (upsert progress / resume position / recent list), player progress tracking + resume (expo-video `timeUpdateEventInterval`), Continue watching / Recently watched row on Home. Moved hosting to Cloudflare Pages (https://vidtalk.pages.dev) after Netlify free-plan credits ran out |
 | `94886b1` | Add playlists | Phase 15: `playlists` + `playlist_videos` tables + RLS, playlist.ts library (list/create/rename/delete, add/remove videos, containing-playlists), `/playlists` list screen + `/playlist/[id]` detail screen, AddToPlaylistModal on the player (bookmark button), Profile Playlists count/link, VideoCard `action` overlay |
 | `56854ff` | Add record option to video upload | Upload tab: `handleRecordVideo` (camera permission + `launchCameraAsync`), "Record a video" / "Choose from library" chooser on native, shared `stageAsset`, native-only (web stays pick-only) |
+| (new) | Optimize images, videos, and caching | Phase 16: Cloudinary thumbnails serve `f_auto`/`q_auto` WebP (~56% smaller) + sharper `w_1280` player poster, optimized playback URL with `q_auto` (~87% smaller delivery), `expo-image` `cachePolicy`+`recyclingKey` on feed cards, feed page cache with 60s TTL (`cache.ts`), clear-on-upload |
 ---
 
 ## Rule

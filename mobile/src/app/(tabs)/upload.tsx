@@ -15,6 +15,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
+import { clearCache } from '@/lib/cache';
 import { saveVideo, uploadVideoToCloudinary } from '@/lib/video';
 import { updateProfile } from '@/lib/profile';
 
@@ -154,6 +155,7 @@ export default function UploadScreen() {
       setVideo(null);
       setTitle('');
       setDescription('');
+      clearCache('feed:');
       Alert.alert('Uploaded!', 'Your video is live.');
     } finally {
       setUploading(false);

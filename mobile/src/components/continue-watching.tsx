@@ -74,7 +74,13 @@ function ContinueCard({ item }: { item: HistoryEntry }) {
       <ThemedView type="backgroundElement" style={styles.inner}>
         <View style={styles.thumbWrap}>
           {thumbnail ? (
-            <Image source={{ uri: thumbnail }} style={styles.thumb} contentFit="cover" />
+            <Image
+              source={{ uri: thumbnail }}
+              style={styles.thumb}
+              contentFit="cover"
+              recyclingKey={video.id}
+              cachePolicy="memory-disk"
+            />
           ) : (
             <ThemedView type="background" style={styles.thumb} />
           )}

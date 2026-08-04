@@ -17,7 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { follow, isFollowing, unfollow } from '@/lib/follow';
 import { formatTimeAgo } from '@/lib/format';
 import { getLikeCount, hasLiked, like, unlike } from '@/lib/like';
-import { getVideo, getVideoThumbnailUrl, type VideoWithCreator } from '@/lib/video';
+import { getVideo, getOptimizedVideoUrl, getCloudinaryPosterUrl, type VideoWithCreator } from '@/lib/video';
 import { getResumePosition, recordProgress } from '@/lib/watch-history';
 
 export default function VideoScreen() {
@@ -116,7 +116,7 @@ export default function VideoScreen() {
       }
       setVideo(res.video);
       setLikeCount(res.video.likes_count ?? 0);
-      player.replace(res.video.video_url);
+      player.replace(getOptimizedVideoUrl(res.video));
     });
     return () => {
       active = false;
@@ -181,7 +181,7 @@ export default function VideoScreen() {
     setLikeBusy(false);
   }
 
-  const thumbnail = video ? getVideoThumbnailUrl(video) : null;
+  const thumbnail = video ? getCloudinaryPosterUrl(video.cloudinary_public_id) : null;
   const creatorName = video?.creator?.username ?? 'VidTalk user';
   const showFollow = Boolean(viewerId && creatorId && viewerId !== creatorId);
 

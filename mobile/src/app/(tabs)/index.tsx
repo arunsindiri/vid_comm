@@ -12,9 +12,11 @@ import { BottomTabInset, MaxContentWidth, Spacing, TopBarHeight } from '@/consta
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
+import { withCache } from '@/lib/cache';
 import { listVideos, type VideoWithCreator } from '@/lib/video';
 
 const PAGE_SIZE = 10;
+const FEED_TTL_MS = 60_000;
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -30,11 +32,16 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const loadingRef = useRef(false);
 
-  const fetchPage = useCallback(async (targetPage: number, replace: boolean) => {
+  const fetchPage = useCallback(async (targetPage: number, replace: boolean, force = false) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
     if (replace) setLoading(true);
-    const res = await listVideos({ page: targetPage, limit: PAGE_SIZE });
+
+    const load = () => listVideos({ page: targetPage, limit: PAGE_SIZE });
+    const res =
+      replace && targetPage === 0 && !force
+        ? await withCache(`feed:page:${targetPage}`, FEED_TTL_MS, load)
+        : await load();
     loadingRef.current = false;
 
     if (res.error) {
@@ -66,7 +73,7 @@ export default function HomeScreen() {
 
   function handleRefresh() {
     setRefreshing(true);
-    fetchPage(0, true);
+    fetchPage(0, true, true);
   }
 
   if (error && videos.length === 0) {

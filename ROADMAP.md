@@ -311,6 +311,18 @@ Checkpoint
 
 ✅ App feels fast.
 
+Done
+
+- Pagination was already in place (feed infinite scroll, `listVideos` limit/range).
+- Image Optimization: Cloudinary thumbnails now serve `f_auto` + `q_auto`
+  (WebP/AVIF) — ~56% smaller; higher-res `w_1280` poster on the player;
+  `expo-image` `cachePolicy="memory-disk"` + `recyclingKey` on feed cards.
+- Video Optimization: playback URL uses Cloudinary `q_auto` (~87% smaller
+  delivery); posters sharpened.
+- Caching: Home feed pages cached in-memory with a 60s TTL, so re-focusing
+  the tab doesn't refetch the same data; pull-to-refresh bypasses the cache
+  and a new upload clears it.
+
 ---
 
 # Phase 17 - Testing

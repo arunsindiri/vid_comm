@@ -31,7 +31,13 @@ export function VideoCard({
         <ThemedView type="backgroundElement" style={styles.card}>
           <View style={styles.thumbnailContainer}>
             {thumbnail ? (
-              <Image source={{ uri: thumbnail }} style={styles.thumbnail} contentFit="cover" />
+              <Image
+                source={{ uri: thumbnail }}
+                style={styles.thumbnail}
+                contentFit="cover"
+                recyclingKey={video.id}
+                cachePolicy="memory-disk"
+              />
             ) : (
               <ThemedView type="background" style={styles.thumbnail}>
                 <ThemedText type="small" themeColor="textSecondary">
@@ -50,7 +56,13 @@ export function VideoCard({
 
           <View style={styles.infoRow}>
             {creatorAvatar ? (
-              <Image source={{ uri: creatorAvatar }} style={styles.avatar} contentFit="cover" />
+              <Image
+                source={{ uri: creatorAvatar }}
+                style={styles.avatar}
+                contentFit="cover"
+                recyclingKey={video.id}
+                cachePolicy="memory-disk"
+              />
             ) : (
               <ThemedView type="background" style={styles.avatar}>
                 <ThemedText type="smallBold">{creatorName.charAt(0).toUpperCase()}</ThemedText>
