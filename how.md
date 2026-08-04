@@ -1274,6 +1274,24 @@ Verified in headless Chrome against the deployed site: Home renders the
 "Continue watching" row, tapping a card routes to `/video/<id>` via the
 SPA fallback, and the player screen renders. No crashes.
 
+### Fix — Google sign-in was bouncing to the old Netlify URL
+
+After moving to Cloudflare, opening the app and signing in redirected to
+the old Netlify domain (`https://fastidious-flan-9dac94.netlify.app?code=…`)
+instead of staying on `vidtalk.pages.dev`. Cause: Supabase **Authentication
+→ URL Configuration** only allowed the Netlify URL, so Google's OAuth
+return went there. Fix (Supabase dashboard):
+
+- Redirect URLs: added `https://vidtalk.pages.dev/**`
+  (kept the Netlify URL as well).
+
+The app requests `https://vidtalk.pages.dev/expo-auth-session` as its
+redirect (expo-auth-session's default web path); Supabase auto-exchanges
+the Google code on that page, then the router takes over. Verified: the
+authorize endpoint 302s to Google with `redirect_to` = pages.dev, and the
+`/expo-auth-session` route returns 200 on the live site. Real Google
+login confirmed working by the user.
+
 ### How to test it (live)
 
 1. Open **https://vidtalk.pages.dev** (hard refresh).
