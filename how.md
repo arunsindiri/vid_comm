@@ -1218,6 +1218,77 @@ after navigating back.
 
 ---
 
+## 2026-08-04 (continued) — Phase 14: Watch History
+
+### What was built
+
+Watch History with **resume playback** and a **Continue watching** row on
+Home:
+
+- `mobile/supabase/watch-history.sql` — `watch_history` table (run in the
+  Supabase SQL Editor):
+  - `user_id` → `auth.users`, `video_id` → `videos` (both cascade);
+  - `last_position_seconds`, `duration_seconds`, `updated_at`;
+  - primary key `(user_id, video_id)` — one row per viewer per video;
+  - index on `(user_id, updated_at desc)` for the "recent" list;
+  - RLS enabled with select / insert / update-own policies.
+- `mobile/src/lib/watch-history.ts` — `recordProgress` (upsert),
+  `getResumePosition`, `listWatchHistory` (embedding the video + creator +
+  likes through `videos!watch_history_video_id_fkey`, same embed pattern as
+  the feed).
+- `mobile/src/app/video/[id].tsx` — player tracks progress:
+  - `timeUpdateEventInterval = 1` fires a `timeUpdate` event every second;
+  - progress is saved throttled (~5s of playback or 15s of wall-clock),
+    so we don't hammer the API;
+  - on unmount the final position is saved;
+  - on load, the player seeks back to the saved position (only if it's
+    ≥3s in and not within the last 10s, so finished videos don't restart).
+- `mobile/src/components/continue-watching.tsx` — horizontal scroll row
+  of cards with thumbnail, time-remaining badge, and a blue progress bar.
+  In-progress items show as **Continue watching**; if nothing is
+  unfinished, the row degrades to **Recently watched** (finished videos
+  get a blue "Watched" badge). Tapping a card opens the video.
+- `mobile/src/app/(tabs)/index.tsx` — the row is the FlatList header so
+  it sits at the top of the Home feed.
+
+### Deployment — Netlify credits exhausted, moved to Cloudflare Pages
+
+Netlify's free tier is now **credit-based** (300 credits/month; each
+production deploy costs 15). Our account hit the limit, so new deploys
+are blocked with *"Account credit usage exceeded …"* until the monthly
+billing-cycle reset. The existing Netlify site stays live.
+
+For free, unlimited deploys with no credit system we moved hosting to
+**Cloudflare Pages**:
+
+```sh
+printf '/* /index.html 200\n' > dist/_redirects     # SPA fallback for deep links
+npx wrangler login                                   # browser OAuth
+npx wrangler pages project create vidtalk --production-branch main
+npx wrangler pages deploy dist --project-name vidtalk --branch main
+```
+
+Live site: **https://vidtalk.pages.dev**
+
+Verified in headless Chrome against the deployed site: Home renders the
+"Continue watching" row, tapping a card routes to `/video/<id>` via the
+SPA fallback, and the player screen renders. No crashes.
+
+### How to test it (live)
+
+1. Open **https://vidtalk.pages.dev** (hard refresh).
+2. Watch a video partway → leave the page.
+3. Home now shows **Continue watching** with a blue progress bar; open it
+   and playback resumes where you left off.
+4. Videos watched to the end appear under **Recently watched** with a
+   "Watched" badge.
+
+### Next steps
+
+- Phase 15 (Playlists), then Optimization / Testing / Release.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -1239,7 +1310,7 @@ after navigating back.
 | `2ba3f8f` | Add video comments | Phase 11 ⭐: comments table extended (nullable body + video fields + timestamp), CommentsSection video composer (pick/record, attach timestamp, Cloudinary upload), inline playback of video comments, "Jump to timestamp" seek, `getCloudinaryThumbnailUrl` refactor |
 | `cf5c192` | Add threaded replies | Phase 12: `comments.parent_id` self-FK (cascade), `loadAllComments`, thread-tree CommentsSection (recursive CommentRow, nested indentation, Reply/Edit/Delete), reusable CommentComposer for replies including video replies |
 | `8c04172` | Add notifications | Phase 13: notifications table + RLS + security-definer triggers (like/follow/comment/reply/@mention) + realtime, notification.ts library, Notifications screen (auto-mark-read on open, tap-to-open, live prepend), Home bell + unread badge (`@expo/vector-icons`), fixed tab-bar click-swallow (`pointerEvents box-none` + `TopBarHeight`) and duplicate realtime channel crash |
-
+| `6b3c85e` | Add watch history | Phase 14: `watch_history` table + RLS, watch-history.ts library (upsert progress / resume position / recent list), player progress tracking + resume (expo-video `timeUpdateEventInterval`), Continue watching / Recently watched row on Home. Moved hosting to Cloudflare Pages (https://vidtalk.pages.dev) after Netlify free-plan credits ran out |
 ---
 
 ## Rule
