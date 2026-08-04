@@ -1377,6 +1377,42 @@ videos straight from the player:
 
 ---
 
+## 2026-08-04 (continued) — Upload tab: Record option added
+
+### What was built
+
+The **Upload tab** previously only had "Pick a video from your device".
+Added a **Record** option (native only):
+
+- `mobile/src/app/(tabs)/upload.tsx`:
+  - New `handleRecordVideo` — requests camera permission then
+    `ImagePicker.launchCameraAsync({ mediaTypes: ['videos'] })`;
+  - Tapping the pick area now shows a chooser on native:
+    **Record a video** / **Choose from library** / Cancel
+    (`handleAddVideo`), matching the video-comment composer;
+  - Picking and recording share one `stageAsset` helper;
+  - Empty-state text is "Record a video or pick from your device" on
+    native, "Pick a video from your device" on web.
+
+### Notes
+
+- **Web** intentionally has no Record option — browsers can't launch the
+  camera via expo-image-picker, so the button still opens the file
+  picker. (This is why the record strings don't appear in the exported
+  web bundle — Metro constant-folds `Platform.OS` and strips the
+  native-only branch.)
+- Typecheck + web export pass; deployed to Cloudflare Pages and verified
+  `/` and `/upload` return 200.
+
+### How to test it (native)
+
+1. Run the app on a phone (Expo Go / dev build).
+2. **Upload tab** → tap the pick area.
+3. Choose **Record a video** → record → it's staged for upload with
+   name/size/duration.
+
+---
+
 ## Git History
 
 | Commit | Message | What it did |
@@ -1400,6 +1436,7 @@ videos straight from the player:
 | `8c04172` | Add notifications | Phase 13: notifications table + RLS + security-definer triggers (like/follow/comment/reply/@mention) + realtime, notification.ts library, Notifications screen (auto-mark-read on open, tap-to-open, live prepend), Home bell + unread badge (`@expo/vector-icons`), fixed tab-bar click-swallow (`pointerEvents box-none` + `TopBarHeight`) and duplicate realtime channel crash |
 | `6b3c85e` | Add watch history | Phase 14: `watch_history` table + RLS, watch-history.ts library (upsert progress / resume position / recent list), player progress tracking + resume (expo-video `timeUpdateEventInterval`), Continue watching / Recently watched row on Home. Moved hosting to Cloudflare Pages (https://vidtalk.pages.dev) after Netlify free-plan credits ran out |
 | `94886b1` | Add playlists | Phase 15: `playlists` + `playlist_videos` tables + RLS, playlist.ts library (list/create/rename/delete, add/remove videos, containing-playlists), `/playlists` list screen + `/playlist/[id]` detail screen, AddToPlaylistModal on the player (bookmark button), Profile Playlists count/link, VideoCard `action` overlay |
+| `56854ff` | Add record option to video upload | Upload tab: `handleRecordVideo` (camera permission + `launchCameraAsync`), "Record a video" / "Choose from library" chooser on native, shared `stageAsset`, native-only (web stays pick-only) |
 ---
 
 ## Rule
