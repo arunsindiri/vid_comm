@@ -57,6 +57,17 @@ export default function UploadScreen() {
     };
   }, [video]);
 
+  async function stageAsset(asset: ImagePicker.ImagePickerAsset) {
+    setVideo({
+      uri: asset.uri,
+      fileName: asset.fileName ?? null,
+      fileSize: asset.fileSize ?? null,
+      duration: asset.duration ?? null,
+      file: asset.file ?? null,
+    });
+    setDone(false);
+  }
+
   async function handlePickVideo() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -71,16 +82,36 @@ export default function UploadScreen() {
     });
 
     if (result.canceled || !result.assets[0]) return;
+    await stageAsset(result.assets[0]);
+  }
 
-    const asset = result.assets[0];
-    setVideo({
-      uri: asset.uri,
-      fileName: asset.fileName ?? null,
-      fileSize: asset.fileSize ?? null,
-      duration: asset.duration ?? null,
-      file: asset.file ?? null,
+  async function handleRecordVideo() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Allow camera access to record a video.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['videos'],
+      allowsEditing: false,
+      quality: 1,
     });
-    setDone(false);
+
+    if (result.canceled || !result.assets[0]) return;
+    await stageAsset(result.assets[0]);
+  }
+
+  function handleAddVideo() {
+    if (Platform.OS === 'web') {
+      handlePickVideo();
+      return;
+    }
+    Alert.alert('Video upload', 'How would you like to add your video?', [
+      { text: 'Record a video', onPress: () => handleRecordVideo() },
+      { text: 'Choose from library', onPress: () => handlePickVideo() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   }
 
   async function handleUpload() {
@@ -148,7 +179,7 @@ export default function UploadScreen() {
             <Pressable
               accessibilityRole="button"
               disabled={uploading}
-              onPress={handlePickVideo}
+              onPress={handleAddVideo}
               style={({ pressed }) => [
                 styles.pickArea,
                 { backgroundColor: theme.backgroundElement },
@@ -167,7 +198,9 @@ export default function UploadScreen() {
                 </ThemedView>
               ) : (
                 <ThemedText type="small" themeColor="textSecondary">
-                  Pick a video from your device
+                  {Platform.OS === 'web'
+                    ? 'Pick a video from your device'
+                    : 'Record a video or pick from your device'}
                 </ThemedText>
               )}
             </Pressable>
