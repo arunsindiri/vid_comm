@@ -27,6 +27,7 @@ import { formatDuration, formatTimeAgo } from '@/lib/format';
 import { getCloudinaryThumbnailUrl, uploadVideoToCloudinary } from '@/lib/video';
 
 const MAX_DEPTH = 4;
+const MAX_COMMENT_VIDEO_SECONDS = 30;
 
 type StagedVideo = {
   uri: string;
@@ -129,12 +130,38 @@ function CommentComposer({
     setTimestamp(null);
   }
 
-  function stageVideo(asset: ImagePicker.ImagePickerAsset) {
+  function measureVideoDuration(uri: string): Promise<number | null> {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      const el = document.createElement('video');
+      el.preload = 'metadata';
+      el.muted = true;
+      el.onloadedmetadata = () => resolve(el.duration);
+      el.onerror = () => resolve(null);
+      el.src = uri;
+    });
+  }
+
+  async function stageVideo(asset: ImagePicker.ImagePickerAsset) {
+    let duration = asset.duration ?? null;
+    if (duration == null) {
+      duration = await measureVideoDuration(asset.uri);
+    }
+    if (duration != null && duration > MAX_COMMENT_VIDEO_SECONDS) {
+      if (asset.uri.startsWith('blob:')) URL.revokeObjectURL(asset.uri);
+      Alert.alert(
+        'Video too long',
+        `Video comments must be ${MAX_COMMENT_VIDEO_SECONDS} seconds or shorter.`,
+      );
+      return;
+    }
     setStagedVideo({
       uri: asset.uri,
       fileName: asset.fileName ?? null,
       file: asset.file ?? null,
-      duration: asset.duration ?? null,
+      duration,
     });
     setTimestamp(null);
   }
@@ -151,7 +178,7 @@ function CommentComposer({
       quality: 1,
     });
     if (result.canceled || !result.assets[0]) return;
-    stageVideo(result.assets[0]);
+    await stageVideo(result.assets[0]);
   }
 
   async function handleRecordVideo() {
@@ -166,7 +193,7 @@ function CommentComposer({
       quality: 1,
     });
     if (result.canceled || !result.assets[0]) return;
-    stageVideo(result.assets[0]);
+    await stageVideo(result.assets[0]);
   }
 
   function handleAddVideo() {
@@ -302,7 +329,9 @@ function CommentComposer({
           onPress={handleAddVideo}
           style={({ pressed }) => [pressed && styles.pressed, posting && styles.disabled]}>
           <ThemedText type="small" themeColor="textSecondary">
-            {Platform.OS === 'web' ? 'Add a video comment' : 'Add a video comment (record or pick)'}
+            {Platform.OS === 'web'
+              ? `Add a video comment (max ${MAX_COMMENT_VIDEO_SECONDS}s)`
+              : `Add a video comment (record or pick · max ${MAX_COMMENT_VIDEO_SECONDS}s)`}
           </ThemedText>
         </Pressable>
       )}
