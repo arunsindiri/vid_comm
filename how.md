@@ -1493,7 +1493,7 @@ delivery and caching:
 | `6b3c85e` | Add watch history | Phase 14: `watch_history` table + RLS, watch-history.ts library (upsert progress / resume position / recent list), player progress tracking + resume (expo-video `timeUpdateEventInterval`), Continue watching / Recently watched row on Home. Moved hosting to Cloudflare Pages (https://vidtalk.pages.dev) after Netlify free-plan credits ran out |
 | `94886b1` | Add playlists | Phase 15: `playlists` + `playlist_videos` tables + RLS, playlist.ts library (list/create/rename/delete, add/remove videos, containing-playlists), `/playlists` list screen + `/playlist/[id]` detail screen, AddToPlaylistModal on the player (bookmark button), Profile Playlists count/link, VideoCard `action` overlay |
 | `56854ff` | Add record option to video upload | Upload tab: `handleRecordVideo` (camera permission + `launchCameraAsync`), "Record a video" / "Choose from library" chooser on native, shared `stageAsset`, native-only (web stays pick-only) |
-| (new) | Optimize images, videos, and caching | Phase 16: Cloudinary thumbnails serve `f_auto`/`q_auto` WebP (~56% smaller) + sharper `w_1280` player poster, optimized playback URL with `q_auto` (~87% smaller delivery), `expo-image` `cachePolicy`+`recyclingKey` on feed cards, feed page cache with 60s TTL (`cache.ts`), clear-on-upload |
+| `7f882f4` | Optimize images, videos, and caching | Phase 16: Cloudinary thumbnails serve `f_auto`/`q_auto` WebP (~56% smaller) + sharper `w_1280` player poster, optimized playback URL with `q_auto` (~87% smaller delivery), `expo-image` `cachePolicy`+`recyclingKey` on feed cards, feed page cache with 60s TTL (`cache.ts`), clear-on-upload |
 ---
 
 ## Rule
